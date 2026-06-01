@@ -79,7 +79,7 @@ public class DynamicDataSourceManager {
     /**
      * 测试数据库连接
      */
-    public boolean testConnection(String dbType, String host, Integer port, String databaseName,
+    public String testConnection(String dbType, String host, Integer port, String databaseName,
                                    String username, String password) {
         String jdbcUrl = buildJdbcUrlForTest(dbType, host, port, databaseName);
         String driverClass = getDriverClassName(dbType);
@@ -87,10 +87,29 @@ public class DynamicDataSourceManager {
         try {
             Class.forName(driverClass);
             try (Connection conn = DriverManager.getConnection(jdbcUrl, username, password)) {
-                return conn.isValid(5);
+                if (conn.isValid(5)) {
+                    return null; // 连接成功
+                }
+                return "数据库连接超时或不可用";
             }
         } catch (Exception e) {
-            return false;
+            String msg = e.getMessage();
+            if (msg != null) {
+                if (msg.contains("Access denied") || msg.contains("access denied")) {
+                    return "用户名或密码错误";
+                } else if (msg.contains("Unknown database") || msg.contains("unknown database")) {
+                    return "数据库 '" + databaseName + "' 不存在";
+                } else if (msg.contains("Unknown host") || msg.contains("unknown host")) {
+                    return "无法解析主机地址 '" + host + "'，请检查主机地址是否正确";
+                } else if (msg.contains("Connection refused") || msg.contains("connect timed out") || msg.contains("CommunicationsException")) {
+                    return "无法连接到 " + host + ":" + port + "，请确保：\n" +
+                           "1. 数据库允许远程连接（MySQL 用户需有 '%' 权限）\n" +
+                           "2. 数据库所在服务器的防火墙已放行 " + port + " 端口\n" +
+                           "3. 数据库服务正在运行\n" +
+                           "4. 如果数据库在本地，需要使用内网穿透工具（如 ngrok）暴露到公网";
+                }
+            }
+            return "连接失败: " + msg;
         }
     }
 

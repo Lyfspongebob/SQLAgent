@@ -71,7 +71,7 @@ public class DataSourceConfigService {
         repository.deleteById(id);
     }
 
-    public boolean testConnection(TestConnectionRequest request) {
+    public String testConnection(TestConnectionRequest request) {
         String password = request.getPassword();
         // 如果密码为空，尝试从数据库获取已保存的密码（编辑时前端不会回传密码）
         if (request.getId() != null && (password == null || password.isEmpty())) {

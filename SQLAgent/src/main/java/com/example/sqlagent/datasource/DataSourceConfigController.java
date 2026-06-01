@@ -77,11 +77,11 @@ public class DataSourceConfigController {
     @PostMapping("/test-connection")
     public ResponseEntity<ApiResponse<Boolean>> testConnection(@RequestBody TestConnectionRequest request) {
         try {
-            boolean success = dataSourceConfigService.testConnection(request);
-            if (success) {
+            String errorMsg = dataSourceConfigService.testConnection(request);
+            if (errorMsg == null) {
                 return ResponseEntity.ok(ApiResponse.success("连接成功", true));
             } else {
-                return ResponseEntity.ok(ApiResponse.error("连接失败，请检查配置"));
+                return ResponseEntity.ok(ApiResponse.error(errorMsg));
             }
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

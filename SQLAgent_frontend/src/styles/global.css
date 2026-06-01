@@ -132,6 +132,50 @@ body {
   font-size: 14px;
 }
 
+/* 远程连接提示框 */
+.remote-access-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff7e6;
+  border: 1px solid #ffd591;
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.remote-access-tip .tip-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.remote-access-tip .tip-content {
+  font-size: 13px;
+  color: #8c6e3f;
+  line-height: 1.6;
+}
+
+.remote-access-tip .tip-content strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #633f00;
+}
+
+.remote-access-tip .tip-content p {
+  margin: 0;
+}
+
+.remote-access-tip .tip-content a {
+  color: #1890ff;
+  text-decoration: none;
+}
+
+.remote-access-tip .tip-content a:hover {
+  text-decoration: underline;
+}
+
 /* 聊天页面样式 */
 .chat-container {
   display: flex;

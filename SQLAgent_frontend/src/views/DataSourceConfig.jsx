@@ -194,6 +194,15 @@ export default function DataSourceConfig() {
 
         {error && <div className="error-message">{error}</div>}
 
+        {/* 远程连接提示 */}
+        <div className="remote-access-tip">
+          <span className="tip-icon">⚠️</span>
+          <div className="tip-content">
+            <strong>请确保你的数据库允许远程连接</strong>
+            <p>SQLAgent 部署在云端服务器，需要通过公网访问你的数据库。如果数据库在本地，请使用内网穿透工具（如 <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer">ngrok</a>、<a href="https://github.com/fatedier/frp" target="_blank" rel="noopener noreferrer">frp</a>）或将数据库迁移到云服务（如 <a href="https://www.aliyun.com/product/rds" target="_blank" rel="noopener noreferrer">阿里云 RDS</a>）。</p>
+          </div>
+        </div>
+
         {/* 配置表单 */}
         {showForm && (
           <div className="config-form">
