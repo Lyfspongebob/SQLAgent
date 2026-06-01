@@ -15,5 +15,14 @@ export const chatApi = {
   },
   getSessions() {
     return api.get('/chat/sessions')
+  },
+  createSession(title) {
+    return api.post('/chat/session/create', { title })
+  },
+  deleteSession(sessionId) {
+    return api.delete(`/chat/session/${sessionId}`)
+  },
+  updateSessionTitle(sessionId, title) {
+    return api.put(`/chat/session/${sessionId}`, { title })
   }
 }

@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class TestConnectionRequest {
+    private Long id;
     private String dbType;
     private String host;
     private Integer port;

@@ -108,24 +108,53 @@ public class DynamicDataSourceManager {
 
     /**
      * 执行 SQL 查询并返回结果
+     * 支持多条语句（以分号分隔），全部执行并收集所有结果
      */
     public List<Map<String, Object>> executeQuery(DataSourceConfig config, String sql) {
         DataSource ds = getDataSource(config);
         List<Map<String, Object>> results = new ArrayList<>();
 
         try (Connection conn = ds.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             Statement stmt = conn.createStatement()) {
 
-            ResultSetMetaData metaData = rs.getMetaData();
-            int columnCount = metaData.getColumnCount();
+            // 使用 execute() 替代 executeQuery()，兼容 SELECT 和非查询语句
+            boolean hasResultSet = stmt.execute(sql);
 
-            while (rs.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    row.put(metaData.getColumnLabel(i), rs.getObject(i));
+            // 循环处理多条语句的所有结果
+            while (true) {
+                if (hasResultSet) {
+                    // SELECT 查询，获取结果集
+                    try (ResultSet rs = stmt.getResultSet()) {
+                        ResultSetMetaData metaData = rs.getMetaData();
+                        int columnCount = metaData.getColumnCount();
+                        while (rs.next()) {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            for (int i = 1; i <= columnCount; i++) {
+                                row.put(metaData.getColumnLabel(i), rs.getObject(i));
+                            }
+                            results.add(row);
+                        }
+                    }
+                } else {
+                    // UPDATE/INSERT/DELETE，记录影响行数
+                    int updateCount = stmt.getUpdateCount();
+                    if (updateCount >= 0) {
+                        Map<String, Object> row = new LinkedHashMap<>();
+                        row.put("affected_rows", updateCount);
+                        results.add(row);
+                    }
                 }
-                results.add(row);
+
+                // 检查是否还有更多结果（多条语句的情况）
+                // getMoreResults() 返回 true 表示下一个结果是 ResultSet
+                // getUpdateCount() 返回 -1 表示没有更多结果
+                if (stmt.getMoreResults()) {
+                    hasResultSet = true;
+                } else if (stmt.getUpdateCount() == -1) {
+                    break; // 没有更多结果了
+                } else {
+                    hasResultSet = false;
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("SQL执行失败: " + e.getMessage());
@@ -133,6 +162,7 @@ public class DynamicDataSourceManager {
 
         return results;
     }
+
 
     /**
      * 执行 SQL 更新（INSERT, UPDATE, DELETE）并返回影响行数

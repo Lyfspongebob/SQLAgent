@@ -85,7 +85,8 @@ public class SQLAgentService {
         List<String> candidateSQLs = new ArrayList<>();
         for (int i = 0; i < voteCount; i++) {
             try {
-                String sql = deepSeekService.generateSQL(userQuestion, config.getDbType(), tableSchema, temperature);
+                String rawSql = deepSeekService.generateSQL(userQuestion, config.getDbType(), tableSchema, temperature);
+                String sql = cleanSQL(rawSql);
                 if (sql != null && !sql.trim().isEmpty()) {
                     candidateSQLs.add(sql.trim());
                 }
@@ -93,6 +94,7 @@ public class SQLAgentService {
                 // 个别生成失败忽略
             }
         }
+
 
         if (candidateSQLs.isEmpty()) {
             response.setReply("无法生成SQL语句，请重试或修改问题描述。");
@@ -157,7 +159,7 @@ public class SQLAgentService {
     private ChatResponse agentFeedbackProcess(String userQuestion, DataSourceConfig config,
                                                String tableSchema, List<String> failedSQLs,
                                                ChatResponse response) {
-        String currentSQL = failedSQLs.get(0); // 取第一个失败的 SQL 作为起点
+        String currentSQL = cleanSQL(failedSQLs.get(0)); // 取第一个失败的 SQL 作为起点，先清洗
         String lastError = null;
 
         for (int attempt = 0; attempt < maxRetryTimes; attempt++) {
@@ -185,13 +187,14 @@ public class SQLAgentService {
 
                     if (fixedSQL != null && !fixedSQL.trim().isEmpty()
                             && !fixedSQL.equals(currentSQL)) {
-                        currentSQL = fixedSQL.trim();
+                        currentSQL = cleanSQL(fixedSQL.trim());
                     }
                 } catch (Exception fixError) {
                     // 修正失败，继续尝试
                 }
             }
         }
+
 
         // 所有重试都失败
         response.setSqlGenerated(currentSQL);
@@ -208,31 +211,29 @@ public class SQLAgentService {
      */
     private String getTableSchema(DataSourceConfig config) {
         StringBuilder schema = new StringBuilder();
-        try {
-            Connection conn = dynamicDataSourceManager.getDataSource(config).getConnection();
+        try (Connection conn = dynamicDataSourceManager.getDataSource(config).getConnection()) {
             DatabaseMetaData metaData = conn.getMetaData();
 
             // 获取所有表
-            ResultSet tables = metaData.getTables(null, null, "%", new String[]{"TABLE"});
-            while (tables.next()) {
-                String tableName = tables.getString("TABLE_NAME");
-                schema.append("表名: ").append(tableName).append("\n");
+            try (ResultSet tables = metaData.getTables(null, null, "%", new String[]{"TABLE"})) {
+                while (tables.next()) {
+                    String tableName = tables.getString("TABLE_NAME");
+                    schema.append("表名: ").append(tableName).append("\n");
 
-                // 获取表的列信息
-                ResultSet columns = metaData.getColumns(null, null, tableName, "%");
-                while (columns.next()) {
-                    String colName = columns.getString("COLUMN_NAME");
-                    String colType = columns.getString("TYPE_NAME");
-                    int colSize = columns.getInt("COLUMN_SIZE");
-                    schema.append("  - ").append(colName)
-                            .append(" (").append(colType)
-                            .append("(").append(colSize).append("))\n");
+                    // 获取表的列信息
+                    try (ResultSet columns = metaData.getColumns(null, null, tableName, "%")) {
+                        while (columns.next()) {
+                            String colName = columns.getString("COLUMN_NAME");
+                            String colType = columns.getString("TYPE_NAME");
+                            int colSize = columns.getInt("COLUMN_SIZE");
+                            schema.append("  - ").append(colName)
+                                    .append(" (").append(colType)
+                                    .append("(").append(colSize).append("))\n");
+                        }
+                    }
+                    schema.append("\n");
                 }
-                columns.close();
-                schema.append("\n");
             }
-            tables.close();
-            conn.close();
         } catch (Exception e) {
             schema.append("无法获取表结构: ").append(e.getMessage());
         }
@@ -283,9 +284,39 @@ public class SQLAgentService {
     }
 
     /**
+     * 清洗 AI 生成的 SQL，去除多余内容
+     * 1. 去除 markdown 代码块标记（```sql, ```, ` 等）
+     * 2. 去除 "SQL:" 等前缀
+     * 3. 去除首尾空白
+     * 保留完整的多条语句（以分号分隔），全部执行
+     */
+    private String cleanSQL(String rawSQL) {
+        if (rawSQL == null || rawSQL.trim().isEmpty()) {
+            return rawSQL;
+        }
+
+        String sql = rawSQL.trim();
+
+        // 1. 去除 markdown 代码块标记
+        sql = sql.replaceAll("(?i)```sql\\s*", "");
+        sql = sql.replaceAll("```", "");
+        sql = sql.replaceAll("`", "");
+
+        // 2. 去除 "SQL:"、"sql:" 等前缀
+        sql = sql.replaceAll("(?i)^\\s*(sql|SQL|sql语句|SQL语句|查询语句)[:\\s]*", "");
+
+        // 3. 去除首尾空白
+        sql = sql.trim();
+
+        return sql;
+    }
+
+
+    /**
      * SQL 投票结果内部类
      */
     private static class SQLVoteResult {
+
         List<Map<String, Object>> results;
         String errorMessage;
         boolean success;

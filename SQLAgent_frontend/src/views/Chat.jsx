@@ -12,19 +12,62 @@ export default function Chat() {
   const [useSqlAgent, setUseSqlAgent] = useState(false)
   const [dataSources, setDataSources] = useState([])
   const [selectedDataSource, setSelectedDataSource] = useState('')
-  const [sessionId] = useState(Date.now())
+  const [sessions, setSessions] = useState([])
+  const [currentSessionId, setCurrentSessionId] = useState(null)
+  const [loadingSessions, setLoadingSessions] = useState(false)
   const messagesEndRef = useRef(null)
   const navigate = useNavigate()
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
+  // 加载会话列表
   useEffect(() => {
+    loadSessions()
     loadDataSources()
   }, [])
+
+  // 切换会话时加载历史消息
+  useEffect(() => {
+    if (currentSessionId) {
+      loadHistory(currentSessionId)
+    } else {
+      setMessages([])
+    }
+  }, [currentSessionId])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  const loadSessions = async () => {
+    setLoadingSessions(true)
+    try {
+      const res = await chatApi.getSessions()
+      if (res.data.code === 200) {
+        const sessionList = res.data.data || []
+        setSessions(sessionList)
+        // 如果有会话，默认选中第一个
+        if (sessionList.length > 0 && !currentSessionId) {
+          setCurrentSessionId(sessionList[0].id)
+        }
+      }
+    } catch (err) {
+      console.error('加载会话列表失败:', err)
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
+
+  const loadHistory = async (sessionId) => {
+    try {
+      const res = await chatApi.getHistory(sessionId)
+      if (res.data.code === 200) {
+        setMessages(res.data.data || [])
+      }
+    } catch (err) {
+      console.error('加载历史消息失败:', err)
+    }
+  }
 
   const loadDataSources = async () => {
     try {
@@ -37,6 +80,49 @@ export default function Chat() {
     }
   }
 
+  const handleNewSession = async () => {
+    try {
+      const res = await chatApi.createSession('新对话')
+      if (res.data.code === 200) {
+        const newSession = res.data.data
+        setSessions(prev => [newSession, ...prev])
+        setCurrentSessionId(newSession.id)
+        setMessages([])
+      }
+    } catch (err) {
+      console.error('创建会话失败:', err)
+    }
+  }
+
+  const handleDeleteSession = async (e, sessionId) => {
+    e.stopPropagation()
+    if (!window.confirm('确定要删除这个会话吗？')) return
+
+    try {
+      const res = await chatApi.deleteSession(sessionId)
+      if (res.data.code === 200) {
+        const updatedSessions = sessions.filter(s => s.id !== sessionId)
+        setSessions(updatedSessions)
+        if (currentSessionId === sessionId) {
+          if (updatedSessions.length > 0) {
+            setCurrentSessionId(updatedSessions[0].id)
+          } else {
+            setCurrentSessionId(null)
+            setMessages([])
+          }
+        }
+      }
+    } catch (err) {
+      console.error('删除会话失败:', err)
+    }
+  }
+
+  const handleSwitchSession = (sessionId) => {
+    if (sessionId !== currentSessionId) {
+      setCurrentSessionId(sessionId)
+    }
+  }
+
   const handleLogout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
@@ -45,6 +131,25 @@ export default function Chat() {
 
   const handleSend = async () => {
     if (!input.trim() || loading) return
+
+    // 如果没有当前会话，先创建一个
+    let sessionId = currentSessionId
+    if (!sessionId) {
+      try {
+        const res = await chatApi.createSession('新对话')
+        if (res.data.code === 200) {
+          const newSession = res.data.data
+          sessionId = newSession.id
+          setSessions(prev => [newSession, ...prev])
+          setCurrentSessionId(sessionId)
+        } else {
+          return
+        }
+      } catch (err) {
+        console.error('创建会话失败:', err)
+        return
+      }
+    }
 
     const userMessage = input.trim()
     setInput('')
@@ -72,6 +177,9 @@ export default function Chat() {
           fromKnowledgeBase: response.fromKnowledgeBase
         }
         setMessages(prev => [...prev, assistantMessage])
+
+        // 刷新会话列表（标题可能已更新）
+        loadSessions()
       }
     } catch (err) {
       setMessages(prev => [...prev, {
@@ -94,6 +202,17 @@ export default function Chat() {
     return name ? name.charAt(0).toUpperCase() : 'U'
   }
 
+  const formatTime = (timeStr) => {
+    if (!timeStr) return ''
+    const date = new Date(timeStr)
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+    if (isToday) {
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    }
+    return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+  }
+
   return (
     <div className="chat-container">
       {/* 侧边栏 */}
@@ -103,11 +222,44 @@ export default function Chat() {
           <p>智能SQL助手</p>
         </div>
 
+        {/* 新建会话按钮 */}
+        <div className="sidebar-new-chat">
+          <button className="new-chat-btn" onClick={handleNewSession}>
+            <span className="icon">✏️</span>
+            新建对话
+          </button>
+        </div>
+
+        {/* 会话列表 */}
+        <div className="sidebar-sessions">
+          {loadingSessions ? (
+            <div className="sessions-loading">加载中...</div>
+          ) : sessions.length === 0 ? (
+            <div className="sessions-empty">暂无对话，点击上方新建</div>
+          ) : (
+            sessions.map(session => (
+              <div
+                key={session.id}
+                className={`session-item ${currentSessionId === session.id ? 'active' : ''}`}
+                onClick={() => handleSwitchSession(session.id)}
+              >
+                <div className="session-info">
+                  <div className="session-title">{session.title || '新对话'}</div>
+                  <div className="session-time">{formatTime(session.updateTime || session.createTime)}</div>
+                </div>
+                <button
+                  className="session-delete-btn"
+                  onClick={(e) => handleDeleteSession(e, session.id)}
+                  title="删除会话"
+                >
+                  ✕
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
         <div className="sidebar-menu">
-          <div className="menu-item active">
-            <span className="icon">💬</span>
-            对话
-          </div>
           <Link to="/datasource" className="menu-item">
             <span className="icon">🔌</span>
             数据源配置
@@ -212,7 +364,7 @@ export default function Chat() {
         {/* 输入区域 */}
         <div className="chat-input-area">
           <div className="chat-options">
-            {/* 知识库开关 - 类似 DeepSeek 的深度思考按钮 */}
+            {/* 知识库开关 */}
             <button
               className={`option-toggle ${useKnowledgeBase ? 'active' : ''}`}
               onClick={() => setUseKnowledgeBase(!useKnowledgeBase)}

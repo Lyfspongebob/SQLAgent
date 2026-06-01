@@ -81,6 +81,7 @@ export default function DataSourceConfig() {
     setError('')
     try {
       const res = await datasourceApi.testConnection({
+        id: editingId, // 编辑时传入 id，便于后端获取已保存的密码
         dbType: form.dbType,
         host: form.host,
         port: form.port,

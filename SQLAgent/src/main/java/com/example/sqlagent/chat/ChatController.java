@@ -35,14 +35,4 @@ public class ChatController {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
     }
-
-    @GetMapping("/sessions")
-    public ResponseEntity<ApiResponse<List<ChatMessage>>> getSessions() {
-        try {
-            List<ChatMessage> sessions = chatService.getUserSessions();
-            return ResponseEntity.ok(ApiResponse.success(sessions));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
-    }
 }

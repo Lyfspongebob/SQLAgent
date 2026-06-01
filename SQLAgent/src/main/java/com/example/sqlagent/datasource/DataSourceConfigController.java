@@ -22,8 +22,8 @@ public class DataSourceConfigController {
         try {
             long userId = StpUtil.getLoginIdAsLong();
             List<DataSourceConfig> configs = dataSourceConfigService.getConfigsByUserId(userId);
-            // 隐藏密码
-            configs.forEach(c -> c.setPassword(null));
+            // 隐藏密码（返回脱敏信息，仅用于前端展示）
+            configs.forEach(c -> c.setPassword("******"));
             return ResponseEntity.ok(ApiResponse.success(configs));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));

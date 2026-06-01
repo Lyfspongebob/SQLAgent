@@ -72,13 +72,21 @@ public class DataSourceConfigService {
     }
 
     public boolean testConnection(TestConnectionRequest request) {
+        String password = request.getPassword();
+        // 如果密码为空，尝试从数据库获取已保存的密码（编辑时前端不会回传密码）
+        if (request.getId() != null && (password == null || password.isEmpty())) {
+            DataSourceConfig config = repository.findById(request.getId()).orElse(null);
+            if (config != null) {
+                password = config.getPassword();
+            }
+        }
         return dynamicDataSourceManager.testConnection(
                 request.getDbType(),
                 request.getHost(),
                 request.getPort(),
                 request.getDatabaseName(),
                 request.getUsername(),
-                request.getPassword()
+                password
         );
     }
 }
