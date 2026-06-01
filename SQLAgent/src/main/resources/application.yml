@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: sqlagent
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/sqlagent
+    username: root
+    password: Lyf2005
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+sa-token:
+  token-name: satoken
+  timeout: 604800
+  allow-concurrent-login: false
+  is-share: false
+  token-style: uuid
+  is-log: true
+
+server:
+  port: 8084
+
+# DeepSeek API Configuration
+deepseek:
+  api-key: sk-892a1eb1d1a0400389ac01c27caff3a4
+  api-url: https://api.deepseek.com/v1/chat/completions
+  model: deepseek-chat
+
+# ZhipuAI Knowledge Base Configuration
+zhipu:
+  api-key: 6c48266ed4a54164867424ffe8faf9a9.7lj6s114GJnTimMZ
+  knowledge-base-id: 1906275880188198912
+  api-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+
+# SQL Agent Configuration
+sql-agent:
+  max-retry-times: 3
+  vote-count: 10
+  temperature: 0.8

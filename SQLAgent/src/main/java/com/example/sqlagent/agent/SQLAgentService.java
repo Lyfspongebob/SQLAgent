@@ -1,0 +1,301 @@
+package com.example.sqlagent.agent;
+
+import com.example.sqlagent.datasource.DataSourceConfig;
+import com.example.sqlagent.datasource.DataSourceConfigRepository;
+import com.example.sqlagent.datasource.DynamicDataSourceManager;
+import com.example.sqlagent.dto.ChatResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.sql.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+public class SQLAgentService {
+
+    @Autowired
+    private DeepSeekService deepSeekService;
+
+    @Autowired
+    private KnowledgeBaseService knowledgeBaseService;
+
+    @Autowired
+    private DynamicDataSourceManager dynamicDataSourceManager;
+
+    @Autowired
+    private DataSourceConfigRepository dataSourceConfigRepository;
+
+    @Value("${sql-agent.max-retry-times:3}")
+    private int maxRetryTimes;
+
+    @Value("${sql-agent.vote-count:10}")
+    private int voteCount;
+
+    @Value("${sql-agent.temperature:0.8}")
+    private double temperature;
+
+    /**
+     * 处理聊天请求
+     */
+    public ChatResponse processChat(String userMessage, Long sessionId,
+                                     Boolean useKnowledgeBase, Boolean useSqlAgent,
+                                     Long dataSourceConfigId) {
+
+        ChatResponse response = new ChatResponse();
+
+        // 1. 知识库查询（如果启用）
+        if (Boolean.TRUE.equals(useKnowledgeBase)) {
+            String kbResult = knowledgeBaseService.queryKnowledgeBase(userMessage);
+            if (kbResult != null && !kbResult.isEmpty()) {
+                response.setFromKnowledgeBase(true);
+                response.setKnowledgeBaseContent(kbResult);
+                response.setReply("【知识库结果】\n" + kbResult);
+                return response;
+            }
+        }
+
+        // 2. SQL Agent 模式（如果启用且配置了数据源）
+        if (Boolean.TRUE.equals(useSqlAgent) && dataSourceConfigId != null) {
+            return processSQLQuery(userMessage, dataSourceConfigId);
+        }
+
+        // 3. 普通对话模式
+        String reply = deepSeekService.normalChat(userMessage, null);
+        response.setReply(reply);
+        response.setFromKnowledgeBase(false);
+        return response;
+    }
+
+    /**
+     * 处理 SQL 查询（包含 Agent 反馈机制 + SQL 多投定优机制）
+     */
+    private ChatResponse processSQLQuery(String userQuestion, Long dataSourceConfigId) {
+        ChatResponse response = new ChatResponse();
+
+        DataSourceConfig config = dataSourceConfigRepository.findById(dataSourceConfigId)
+                .orElseThrow(() -> new RuntimeException("数据源配置不存在"));
+
+        // 获取数据库表结构信息
+        String tableSchema = getTableSchema(config);
+
+        // ========== 机制一：SQL 多投定优机制 ==========
+        // 使用高 Temperature 生成多个候选 SQL
+        List<String> candidateSQLs = new ArrayList<>();
+        for (int i = 0; i < voteCount; i++) {
+            try {
+                String sql = deepSeekService.generateSQL(userQuestion, config.getDbType(), tableSchema, temperature);
+                if (sql != null && !sql.trim().isEmpty()) {
+                    candidateSQLs.add(sql.trim());
+                }
+            } catch (Exception e) {
+                // 个别生成失败忽略
+            }
+        }
+
+        if (candidateSQLs.isEmpty()) {
+            response.setReply("无法生成SQL语句，请重试或修改问题描述。");
+            response.setSqlExecutionSuccess(false);
+            response.setSqlErrorMessage("所有候选SQL生成失败");
+            return response;
+        }
+
+        // 执行所有候选 SQL 并收集结果
+        Map<String, SQLVoteResult> voteResults = new LinkedHashMap<>();
+        for (String sql : candidateSQLs) {
+            try {
+                List<Map<String, Object>> results = dynamicDataSourceManager.executeQuery(config, sql);
+                String resultKey = resultsToString(results);
+                voteResults.merge(sql, new SQLVoteResult(results, null, true),
+                        (existing, incoming) -> {
+                            existing.voteCount++;
+                            return existing;
+                        });
+            } catch (Exception e) {
+                voteResults.merge(sql, new SQLVoteResult(null, e.getMessage(), false),
+                        (existing, incoming) -> {
+                            existing.voteCount++;
+                            return existing;
+                        });
+            }
+        }
+
+        // 投票选择：找出执行成功且结果最多的 SQL
+        SQLVoteResult bestResult = voteResults.values().stream()
+                .filter(r -> r.success)
+                .max(Comparator.comparingInt(r -> r.voteCount))
+                .orElse(null);
+
+        if (bestResult != null) {
+            // 找到最佳 SQL
+            String bestSQL = voteResults.entrySet().stream()
+                    .filter(e -> e.getValue() == bestResult)
+                    .map(Map.Entry::getKey)
+                    .findFirst()
+                    .orElse(candidateSQLs.get(0));
+
+            response.setSqlGenerated(bestSQL);
+            response.setSqlResults(bestResult.results);
+            response.setSqlExecutionSuccess(true);
+
+            // 生成自然语言回复
+            String reply = generateReplyFromResults(userQuestion, bestSQL, bestResult.results);
+            response.setReply(reply);
+        } else {
+            // ========== 机制二：Agent 反馈机制 ==========
+            // 所有候选 SQL 都失败了，进入 Agent 反馈修正流程
+            response = agentFeedbackProcess(userQuestion, config, tableSchema, candidateSQLs, response);
+        }
+
+        return response;
+    }
+
+    /**
+     * Agent 反馈机制：不断修正 SQL 直到成功或达到最大重试次数
+     */
+    private ChatResponse agentFeedbackProcess(String userQuestion, DataSourceConfig config,
+                                               String tableSchema, List<String> failedSQLs,
+                                               ChatResponse response) {
+        String currentSQL = failedSQLs.get(0); // 取第一个失败的 SQL 作为起点
+        String lastError = null;
+
+        for (int attempt = 0; attempt < maxRetryTimes; attempt++) {
+            try {
+                // 尝试执行当前 SQL
+                List<Map<String, Object>> results = dynamicDataSourceManager.executeQuery(config, currentSQL);
+
+                // 执行成功
+                response.setSqlGenerated(currentSQL);
+                response.setSqlResults(results);
+                response.setSqlExecutionSuccess(true);
+
+                String reply = generateReplyFromResults(userQuestion, currentSQL, results);
+                response.setReply(reply);
+                return response;
+
+            } catch (Exception e) {
+                lastError = e.getMessage();
+
+                // 将错误信息反馈给模型，让模型修正 SQL
+                try {
+                    String fixedSQL = deepSeekService.fixSQLWithFeedback(
+                            userQuestion, config.getDbType(), tableSchema,
+                            currentSQL, null, lastError);
+
+                    if (fixedSQL != null && !fixedSQL.trim().isEmpty()
+                            && !fixedSQL.equals(currentSQL)) {
+                        currentSQL = fixedSQL.trim();
+                    }
+                } catch (Exception fixError) {
+                    // 修正失败，继续尝试
+                }
+            }
+        }
+
+        // 所有重试都失败
+        response.setSqlGenerated(currentSQL);
+        response.setSqlExecutionSuccess(false);
+        response.setSqlErrorMessage(lastError);
+        response.setReply("经过" + maxRetryTimes + "次尝试后仍无法生成正确的SQL。\n" +
+                "最后一次尝试的SQL：\n```sql\n" + currentSQL + "\n```\n" +
+                "错误信息：" + lastError);
+        return response;
+    }
+
+    /**
+     * 获取数据库表结构信息
+     */
+    private String getTableSchema(DataSourceConfig config) {
+        StringBuilder schema = new StringBuilder();
+        try {
+            Connection conn = dynamicDataSourceManager.getDataSource(config).getConnection();
+            DatabaseMetaData metaData = conn.getMetaData();
+
+            // 获取所有表
+            ResultSet tables = metaData.getTables(null, null, "%", new String[]{"TABLE"});
+            while (tables.next()) {
+                String tableName = tables.getString("TABLE_NAME");
+                schema.append("表名: ").append(tableName).append("\n");
+
+                // 获取表的列信息
+                ResultSet columns = metaData.getColumns(null, null, tableName, "%");
+                while (columns.next()) {
+                    String colName = columns.getString("COLUMN_NAME");
+                    String colType = columns.getString("TYPE_NAME");
+                    int colSize = columns.getInt("COLUMN_SIZE");
+                    schema.append("  - ").append(colName)
+                            .append(" (").append(colType)
+                            .append("(").append(colSize).append("))\n");
+                }
+                columns.close();
+                schema.append("\n");
+            }
+            tables.close();
+            conn.close();
+        } catch (Exception e) {
+            schema.append("无法获取表结构: ").append(e.getMessage());
+        }
+        return schema.toString();
+    }
+
+    /**
+     * 将结果集转为字符串用于投票比较
+     */
+    private String resultsToString(List<Map<String, Object>> results) {
+        if (results == null || results.isEmpty()) return "empty";
+        return results.stream()
+                .map(Map::toString)
+                .collect(Collectors.joining(";"));
+    }
+
+    /**
+     * 根据 SQL 执行结果生成自然语言回复
+     */
+    private String generateReplyFromResults(String question, String sql, List<Map<String, Object>> results) {
+        StringBuilder reply = new StringBuilder();
+        reply.append("✅ SQL执行成功！\n\n");
+        reply.append("**生成的SQL：**\n```sql\n").append(sql).append("\n```\n\n");
+
+        if (results == null || results.isEmpty()) {
+            reply.append("**查询结果：** 没有找到匹配的数据。");
+        } else {
+            reply.append("**查询结果：** 共找到 ").append(results.size()).append(" 条记录\n\n");
+
+            // 显示前10条结果
+            int displayCount = Math.min(results.size(), 10);
+            for (int i = 0; i < displayCount; i++) {
+                Map<String, Object> row = results.get(i);
+                reply.append("**记录 ").append(i + 1).append("：**\n");
+                for (Map.Entry<String, Object> entry : row.entrySet()) {
+                    reply.append("- ").append(entry.getKey()).append(": ")
+                            .append(entry.getValue()).append("\n");
+                }
+                reply.append("\n");
+            }
+
+            if (results.size() > 10) {
+                reply.append("... 还有 ").append(results.size() - 10).append(" 条记录\n");
+            }
+        }
+
+        return reply.toString();
+    }
+
+    /**
+     * SQL 投票结果内部类
+     */
+    private static class SQLVoteResult {
+        List<Map<String, Object>> results;
+        String errorMessage;
+        boolean success;
+        int voteCount;
+
+        SQLVoteResult(List<Map<String, Object>> results, String errorMessage, boolean success) {
+            this.results = results;
+            this.errorMessage = errorMessage;
+            this.success = success;
+            this.voteCount = 1;
+        }
+    }
+}
