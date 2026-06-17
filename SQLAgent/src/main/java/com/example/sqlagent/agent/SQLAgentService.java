@@ -4,6 +4,8 @@ import com.example.sqlagent.datasource.DataSourceConfig;
 import com.example.sqlagent.datasource.DataSourceConfigRepository;
 import com.example.sqlagent.datasource.DynamicDataSourceManager;
 import com.example.sqlagent.dto.ChatResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class SQLAgentService {
+
+    private static final Logger log = LoggerFactory.getLogger(SQLAgentService.class);
 
     @Autowired
     private DeepSeekService deepSeekService;
@@ -38,6 +42,11 @@ public class SQLAgentService {
 
     /**
      * 处理聊天请求
+     * 流程：
+     * 1. 如果启用知识库，先通过智谱对话 API + tools.retrieval 查询知识库
+     *    （智谱会自动检索知识库并基于知识库内容回答，返回的是 AI 润色后的回答）
+     * 2. 如果启用 SQL Agent，将知识库回答作为上下文注入到 SQL 生成的 prompt 中
+     * 3. 如果只启用知识库（无 SQL Agent），直接使用智谱返回的回答
      */
     public ChatResponse processChat(String userMessage, Long sessionId,
                                      Boolean useKnowledgeBase, Boolean useSqlAgent,
@@ -46,34 +55,40 @@ public class SQLAgentService {
         ChatResponse response = new ChatResponse();
 
         // 1. 知识库查询（如果启用）
+        String kbResult = null;
         if (Boolean.TRUE.equals(useKnowledgeBase)) {
-            String kbResult = knowledgeBaseService.queryKnowledgeBase(userMessage);
+            kbResult = knowledgeBaseService.queryKnowledgeBase(userMessage);
             if (kbResult != null && !kbResult.isEmpty()) {
                 response.setFromKnowledgeBase(true);
                 response.setKnowledgeBaseContent(kbResult);
-                response.setReply("【知识库结果】\n" + kbResult);
-                return response;
+                log.info("知识库查询到相关内容，长度: {}", kbResult.length());
+            } else {
+                log.info("知识库未查询到相关内容");
             }
         }
 
         // 2. SQL Agent 模式（如果启用且配置了数据源）
         if (Boolean.TRUE.equals(useSqlAgent) && dataSourceConfigId != null) {
-            return processSQLQuery(userMessage, dataSourceConfigId);
+            return processSQLQuery(userMessage, dataSourceConfigId, kbResult, response);
         }
 
         // 3. 普通对话模式
-        String reply = deepSeekService.normalChat(userMessage, null);
-        response.setReply(reply);
-        response.setFromKnowledgeBase(false);
+        //    知识库已由智谱 AI 自动润色回答，直接使用
+        if (kbResult != null) {
+            response.setReply(kbResult);
+        } else {
+            String reply = deepSeekService.normalChat(userMessage, null);
+            response.setReply(reply);
+        }
         return response;
     }
 
     /**
      * 处理 SQL 查询（包含 Agent 反馈机制 + SQL 多投定优机制）
+     * @param kbResult 知识库查询结果，可能为null
      */
-    private ChatResponse processSQLQuery(String userQuestion, Long dataSourceConfigId) {
-        ChatResponse response = new ChatResponse();
-
+    private ChatResponse processSQLQuery(String userQuestion, Long dataSourceConfigId,
+                                          String kbResult, ChatResponse response) {
         DataSourceConfig config = dataSourceConfigRepository.findById(dataSourceConfigId)
                 .orElseThrow(() -> new RuntimeException("数据源配置不存在"));
 
@@ -85,7 +100,7 @@ public class SQLAgentService {
         List<String> candidateSQLs = new ArrayList<>();
         for (int i = 0; i < voteCount; i++) {
             try {
-                String rawSql = deepSeekService.generateSQL(userQuestion, config.getDbType(), tableSchema, temperature);
+                String rawSql = deepSeekService.generateSQL(userQuestion, config.getDbType(), tableSchema, temperature, kbResult);
                 String sql = cleanSQL(rawSql);
                 if (sql != null && !sql.trim().isEmpty()) {
                     candidateSQLs.add(sql.trim());
@@ -94,7 +109,6 @@ public class SQLAgentService {
                 // 个别生成失败忽略
             }
         }
-
 
         if (candidateSQLs.isEmpty()) {
             response.setReply("无法生成SQL语句，请重试或修改问题描述。");
@@ -141,13 +155,13 @@ public class SQLAgentService {
             response.setSqlResults(bestResult.results);
             response.setSqlExecutionSuccess(true);
 
-            // 生成自然语言回复
-            String reply = generateReplyFromResults(userQuestion, bestSQL, bestResult.results);
+            // 生成自然语言回复（如果知识库有内容，也一并传入）
+            String reply = generateReplyFromResults(userQuestion, bestSQL, bestResult.results, kbResult);
             response.setReply(reply);
         } else {
             // ========== 机制二：Agent 反馈机制 ==========
             // 所有候选 SQL 都失败了，进入 Agent 反馈修正流程
-            response = agentFeedbackProcess(userQuestion, config, tableSchema, candidateSQLs, response);
+            response = agentFeedbackProcess(userQuestion, config, tableSchema, candidateSQLs, response, kbResult);
         }
 
         return response;
@@ -158,7 +172,7 @@ public class SQLAgentService {
      */
     private ChatResponse agentFeedbackProcess(String userQuestion, DataSourceConfig config,
                                                String tableSchema, List<String> failedSQLs,
-                                               ChatResponse response) {
+                                               ChatResponse response, String kbResult) {
         String currentSQL = cleanSQL(failedSQLs.get(0)); // 取第一个失败的 SQL 作为起点，先清洗
         String lastError = null;
 
@@ -172,7 +186,7 @@ public class SQLAgentService {
                 response.setSqlResults(results);
                 response.setSqlExecutionSuccess(true);
 
-                String reply = generateReplyFromResults(userQuestion, currentSQL, results);
+                String reply = generateReplyFromResults(userQuestion, currentSQL, results, kbResult);
                 response.setReply(reply);
                 return response;
 
@@ -183,7 +197,7 @@ public class SQLAgentService {
                 try {
                     String fixedSQL = deepSeekService.fixSQLWithFeedback(
                             userQuestion, config.getDbType(), tableSchema,
-                            currentSQL, null, lastError);
+                            currentSQL, null, lastError, kbResult);
 
                     if (fixedSQL != null && !fixedSQL.trim().isEmpty()
                             && !fixedSQL.equals(currentSQL)) {
@@ -194,7 +208,6 @@ public class SQLAgentService {
                 }
             }
         }
-
 
         // 所有重试都失败
         response.setSqlGenerated(currentSQL);
@@ -253,8 +266,14 @@ public class SQLAgentService {
     /**
      * 根据 SQL 执行结果生成自然语言回复
      */
-    private String generateReplyFromResults(String question, String sql, List<Map<String, Object>> results) {
+    private String generateReplyFromResults(String question, String sql, List<Map<String, Object>> results, String kbResult) {
         StringBuilder reply = new StringBuilder();
+
+        // 如果有知识库内容，先显示知识库标记
+        if (kbResult != null && !kbResult.isEmpty()) {
+            reply.append("📚 **知识库参考**\n\n");
+        }
+
         reply.append("✅ SQL执行成功！\n\n");
         reply.append("**生成的SQL：**\n```sql\n").append(sql).append("\n```\n\n");
 
@@ -310,7 +329,6 @@ public class SQLAgentService {
 
         return sql;
     }
-
 
     /**
      * SQL 投票结果内部类

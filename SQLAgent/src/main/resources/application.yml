@@ -43,9 +43,10 @@ deepseek:
 
 # ZhipuAI Knowledge Base Configuration
 zhipu:
-  api-key: 6c48266ed4a54164867424ffe8faf9a9.7lj6s114GJnTimMZ
+  api-key: b98b94fdb042463dbd96e4708e9dec11.p4mN7VI4gHRYb9Jk
   knowledge-base-id: 1906275880188198912
   api-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+  model: glm-4-plus
 
 # SQL Agent Configuration
 sql-agent:
