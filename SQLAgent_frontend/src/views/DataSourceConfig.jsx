@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { datasourceApi } from '../api/datasource'
+import ThemeToggle from '../components/ThemeToggle'
+import {
+  Logo,
+  IconChat,
+  IconDatabase,
+  IconPlus,
+  IconLink,
+  IconSave,
+  IconPencil,
+  IconTrash,
+  IconAlert,
+} from '../components/Icons'
 
 export default function DataSourceConfig() {
   const [configs, setConfigs] = useState([])
@@ -81,7 +93,7 @@ export default function DataSourceConfig() {
     setError('')
     try {
       const res = await datasourceApi.testConnection({
-        id: editingId, // 编辑时传入 id，便于后端获取已保存的密码
+        id: editingId,
         dbType: form.dbType,
         host: form.host,
         port: form.port,
@@ -90,12 +102,12 @@ export default function DataSourceConfig() {
         password: form.password
       })
       if (res.data.code === 200) {
-        alert('✅ 连接成功！')
+        alert('连接成功！')
       } else {
-        alert('❌ 连接失败：' + res.data.message)
+        alert('连接失败：' + res.data.message)
       }
     } catch (err) {
-      alert('❌ 连接失败：' + (err.response?.data?.message || err.message))
+      alert('连接失败：' + (err.response?.data?.message || err.message))
     } finally {
       setTesting(false)
     }
@@ -149,30 +161,34 @@ export default function DataSourceConfig() {
   }
 
   return (
-    <div className="chat-container">
+    <div className="app">
       {/* 侧边栏 */}
-      <div className="chat-sidebar">
-        <div className="sidebar-header">
-          <h2>SQL Agent</h2>
-          <p>智能SQL助手</p>
+      <div className="sidebar">
+        <div className="sidebar-head">
+          <div className="sidebar-brand">
+            <Logo size={34} />
+            <div>
+              <div className="brand-name">SQL Agent</div>
+              <div className="brand-sub">智能 SQL 助手</div>
+            </div>
+          </div>
+          <ThemeToggle />
         </div>
 
-        <div className="sidebar-menu">
-          <Link to="/chat" className="menu-item">
-            <span className="icon">💬</span>
+        <div className="sidebar-nav">
+          <Link to="/chat" className="nav-item">
+            <IconChat size={18} />
             对话
           </Link>
-          <div className="menu-item active">
-            <span className="icon">🔌</span>
+          <div className="nav-item active">
+            <IconDatabase size={18} />
             数据源配置
           </div>
         </div>
 
         <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">
-              {getInitial(user.nickname || user.username)}
-            </div>
+          <div className="user-box">
+            <div className="avatar">{getInitial(user.nickname || user.username)}</div>
             <span className="user-name">{user.nickname || user.username}</span>
             <button className="logout-btn" onClick={handleLogout}>退出</button>
           </div>
@@ -180,23 +196,33 @@ export default function DataSourceConfig() {
       </div>
 
       {/* 主内容区域 */}
-      <div className="config-container" style={{ flex: 1, overflow: 'auto' }}>
-        <div className="config-header">
-          <h1>🔌 数据源配置</h1>
+      <div className="page">
+        <div className="page-head">
+          <div className="page-title">
+            <div className="title-icon"><IconDatabase size={20} /></div>
+            <div>
+              <h1>数据源配置</h1>
+              <p>管理用于查询的数据库连接</p>
+            </div>
+          </div>
           <button
             className="btn btn-primary"
-            style={{ width: 'auto', padding: '10px 20px' }}
             onClick={() => { resetForm(); setShowForm(!showForm) }}
           >
-            {showForm ? '取消' : '+ 新增数据源'}
+            {showForm ? '取消' : (<><IconPlus size={16} />新增数据源</>)}
           </button>
         </div>
 
-        {error && <div className="error-message">{error}</div>}
+        {error && (
+          <div className="form-error">
+            <IconAlert size={16} />
+            {error}
+          </div>
+        )}
 
         {/* 远程连接提示 */}
-        <div className="remote-access-tip">
-          <span className="tip-icon">⚠️</span>
+        <div className="tip-card">
+          <span className="tip-icon"><IconAlert size={18} /></span>
           <div className="tip-content">
             <strong>请确保你的数据库允许远程连接</strong>
             <p>SQLAgent 部署在云端服务器，需要通过公网访问你的数据库。如果数据库在本地，请使用内网穿透工具（如 <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer">ngrok</a>、<a href="https://github.com/fatedier/frp" target="_blank" rel="noopener noreferrer">frp</a>）或将数据库迁移到云服务（如 <a href="https://www.aliyun.com/product/rds" target="_blank" rel="noopener noreferrer">阿里云 RDS</a>）。</p>
@@ -205,12 +231,13 @@ export default function DataSourceConfig() {
 
         {/* 配置表单 */}
         {showForm && (
-          <div className="config-form">
-            <h2>{editingId ? '编辑数据源' : '新增数据源'}</h2>
+          <div className="card">
+            <div className="card-title">{editingId ? '编辑数据源' : '新增数据源'}</div>
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
+              <div className="field">
                 <label>数据源名称</label>
                 <input
+                  className="input"
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -219,10 +246,11 @@ export default function DataSourceConfig() {
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
+              <div className="form-grid">
+                <div className="field">
                   <label>数据库类型</label>
                   <select
+                    className="input"
                     value={form.dbType}
                     onChange={(e) => {
                       const portMap = { mysql: 3306, postgresql: 5432, sqlserver: 1433 }
@@ -234,9 +262,10 @@ export default function DataSourceConfig() {
                     <option value="sqlserver">SQL Server</option>
                   </select>
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>主机地址</label>
                   <input
+                    className="input"
                     type="text"
                     value={form.host}
                     onChange={(e) => setForm({ ...form, host: e.target.value })}
@@ -244,21 +273,21 @@ export default function DataSourceConfig() {
                     required
                   />
                 </div>
-              </div>
 
-              <div className="form-row">
-                <div className="form-group">
+                <div className="field">
                   <label>端口</label>
                   <input
+                    className="input"
                     type="number"
                     value={form.port}
                     onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
                     required
                   />
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>数据库名</label>
                   <input
+                    className="input"
                     type="text"
                     value={form.databaseName}
                     onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
@@ -266,12 +295,11 @@ export default function DataSourceConfig() {
                     required
                   />
                 </div>
-              </div>
 
-              <div className="form-row">
-                <div className="form-group">
+                <div className="field">
                   <label>用户名</label>
                   <input
+                    className="input"
                     type="text"
                     value={form.username}
                     onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -279,9 +307,10 @@ export default function DataSourceConfig() {
                     required
                   />
                 </div>
-                <div className="form-group">
+                <div className="field">
                   <label>密码</label>
                   <input
+                    className="input"
                     type="password"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -289,16 +318,17 @@ export default function DataSourceConfig() {
                     required={!editingId}
                   />
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label>描述（可选）</label>
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="数据源用途说明"
-                />
+                <div className="field full">
+                  <label>描述（可选）</label>
+                  <input
+                    className="input"
+                    type="text"
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    placeholder="数据源用途说明"
+                  />
+                </div>
               </div>
 
               <div className="btn-group">
@@ -308,14 +338,16 @@ export default function DataSourceConfig() {
                   onClick={handleTestConnection}
                   disabled={testing}
                 >
-                  {testing ? '测试中...' : '🔗 测试连接'}
+                  <IconLink size={16} />
+                  {testing ? '测试中...' : '测试连接'}
                 </button>
                 <button
                   type="submit"
                   className="btn btn-primary"
                   disabled={loading}
                 >
-                  {loading ? '保存中...' : '💾 保存'}
+                  <IconSave size={16} />
+                  {loading ? '保存中...' : '保存'}
                 </button>
               </div>
             </form>
@@ -323,30 +355,33 @@ export default function DataSourceConfig() {
         )}
 
         {/* 数据源列表 */}
-        <div className="config-list">
+        <div className="ds-list">
           {configs.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>📡</div>
+            <div className="empty-state">
+              <div className="empty-icon"><IconDatabase size={26} /></div>
               <p>还没有配置数据源</p>
-              <p style={{ fontSize: '13px', marginTop: '8px' }}>
-                点击上方"新增数据源"按钮开始配置
-              </p>
+              <p className="empty-hint">点击上方「新增数据源」按钮开始配置</p>
             </div>
           ) : (
             configs.map(config => (
-              <div key={config.id} className="config-item">
-                <div className="config-item-info">
-                  <h3>{config.name}</h3>
-                  <p>
-                    {dbTypeLabels[config.dbType] || config.dbType} · {config.host}:{config.port} · {config.databaseName}
+              <div key={config.id} className="ds-item">
+                <div className="ds-info">
+                  <div className="ds-name">
+                    {config.name}
+                    <span className="ds-type">{dbTypeLabels[config.dbType] || config.dbType}</span>
+                  </div>
+                  <div className="ds-meta">
+                    {config.host}:{config.port} · {config.databaseName}
                     {config.description && ` · ${config.description}`}
-                  </p>
+                  </div>
                 </div>
-                <div className="config-item-actions">
+                <div className="ds-actions">
                   <button className="btn-edit" onClick={() => handleEdit(config)}>
+                    <IconPencil size={14} />
                     编辑
                   </button>
                   <button className="btn-delete" onClick={() => handleDelete(config.id)}>
+                    <IconTrash size={14} />
                     删除
                   </button>
                 </div>

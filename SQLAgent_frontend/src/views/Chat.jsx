@@ -3,6 +3,17 @@ import { useNavigate, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { chatApi } from '../api/chat'
 import { datasourceApi } from '../api/datasource'
+import ThemeToggle from '../components/ThemeToggle'
+import {
+  Logo,
+  IconPlus,
+  IconChat,
+  IconDatabase,
+  IconBook,
+  IconCode,
+  IconSend,
+  IconX,
+} from '../components/Icons'
 
 export default function Chat() {
   const [messages, setMessages] = useState([])
@@ -20,13 +31,11 @@ export default function Chat() {
 
   const user = JSON.parse(localStorage.getItem('user') || '{}')
 
-  // 加载会话列表
   useEffect(() => {
     loadSessions()
     loadDataSources()
   }, [])
 
-  // 切换会话时加载历史消息
   useEffect(() => {
     if (currentSessionId) {
       loadHistory(currentSessionId)
@@ -46,7 +55,6 @@ export default function Chat() {
       if (res.data.code === 200) {
         const sessionList = res.data.data || []
         setSessions(sessionList)
-        // 如果有会话，默认选中第一个
         if (sessionList.length > 0 && !currentSessionId) {
           setCurrentSessionId(sessionList[0].id)
         }
@@ -132,7 +140,6 @@ export default function Chat() {
   const handleSend = async () => {
     if (!input.trim() || loading) return
 
-    // 如果没有当前会话，先创建一个
     let sessionId = currentSessionId
     if (!sessionId) {
       try {
@@ -177,8 +184,6 @@ export default function Chat() {
           fromKnowledgeBase: response.fromKnowledgeBase
         }
         setMessages(prev => [...prev, assistantMessage])
-
-        // 刷新会话列表（标题可能已更新）
         loadSessions()
       }
     } catch (err) {
@@ -214,26 +219,30 @@ export default function Chat() {
   }
 
   return (
-    <div className="chat-container">
+    <div className="app">
       {/* 侧边栏 */}
-      <div className="chat-sidebar">
-        <div className="sidebar-header">
-          <h2>SQL Agent</h2>
-          <p>智能SQL助手</p>
+      <div className="sidebar">
+        <div className="sidebar-head">
+          <div className="sidebar-brand">
+            <Logo size={34} />
+            <div>
+              <div className="brand-name">SQL Agent</div>
+              <div className="brand-sub">智能 SQL 助手</div>
+            </div>
+          </div>
+          <ThemeToggle />
         </div>
 
-        {/* 新建会话按钮 */}
-        <div className="sidebar-new-chat">
-          <button className="new-chat-btn" onClick={handleNewSession}>
-            <span className="icon">✏️</span>
+        <div className="sidebar-new">
+          <button className="btn-new-chat" onClick={handleNewSession}>
+            <IconPlus size={16} />
             新建对话
           </button>
         </div>
 
-        {/* 会话列表 */}
-        <div className="sidebar-sessions">
+        <div className="session-list">
           {loadingSessions ? (
-            <div className="sessions-loading">加载中...</div>
+            <div className="sessions-empty">加载中...</div>
           ) : sessions.length === 0 ? (
             <div className="sessions-empty">暂无对话，点击上方新建</div>
           ) : (
@@ -248,29 +257,27 @@ export default function Chat() {
                   <div className="session-time">{formatTime(session.updateTime || session.createTime)}</div>
                 </div>
                 <button
-                  className="session-delete-btn"
+                  className="session-delete"
                   onClick={(e) => handleDeleteSession(e, session.id)}
                   title="删除会话"
                 >
-                  ✕
+                  <IconX size={14} />
                 </button>
               </div>
             ))
           )}
         </div>
 
-        <div className="sidebar-menu">
-          <Link to="/datasource" className="menu-item">
-            <span className="icon">🔌</span>
+        <div className="sidebar-nav">
+          <Link to="/datasource" className="nav-item">
+            <IconDatabase size={18} />
             数据源配置
           </Link>
         </div>
 
         <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">
-              {getInitial(user.nickname || user.username)}
-            </div>
+          <div className="user-box">
+            <div className="avatar">{getInitial(user.nickname || user.username)}</div>
             <span className="user-name">{user.nickname || user.username}</span>
             <button className="logout-btn" onClick={handleLogout}>退出</button>
           </div>
@@ -278,77 +285,91 @@ export default function Chat() {
       </div>
 
       {/* 主聊天区域 */}
-      <div className="chat-main">
-        <div className="chat-messages">
+      <div className="main">
+        <div className="chat-body">
           {messages.length === 0 && (
-            <div style={{
-              textAlign: 'center',
-              padding: '60px 20px',
-              color: '#999'
-            }}>
-              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
-              <h2 style={{ color: '#333', marginBottom: '8px' }}>欢迎使用 SQL Agent</h2>
-              <p>我可以帮您：</p>
-              <p>• 用自然语言查询数据库</p>
-              <p>• 编写和优化 SQL 语句</p>
-              <p>• 分析数据库表结构</p>
-              <p style={{ marginTop: '16px', fontSize: '12px' }}>
-                请先在"数据源配置"中添加数据库连接，然后开启"SQL Agent"模式
-              </p>
+            <div className="welcome">
+              <Logo size={64} />
+              <h2>欢迎使用 SQL Agent</h2>
+              <p>用自然语言查询数据库，轻松编写与优化 SQL</p>
+              <div className="welcome-tips">
+                <span className="welcome-tip">自然语言查询</span>
+                <span className="welcome-tip">编写与优化 SQL</span>
+                <span className="welcome-tip">分析表结构</span>
+              </div>
             </div>
           )}
 
           {messages.map((msg, index) => (
-            <div key={index} className={`message ${msg.role}`}>
-              <div className="message-label">
-                {msg.role === 'user' ? '你' : 'AI 助手'}
-                {msg.fromKnowledgeBase && ' 📚 知识库'}
-                {msg.sqlGenerated && ' 🗄️ SQL'}
+            <div key={index} className={`message-row ${msg.role}`}>
+              <div className="msg-avatar">
+                {msg.role === 'user' ? getInitial(user.nickname || user.username) : <IconChat size={16} />}
               </div>
-              <div className="message-content">
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
-                {msg.sqlGenerated && (
-                  <div style={{ marginTop: '8px' }}>
-                    <div style={{
-                      background: '#f0f5ff',
-                      border: '1px solid #d6e4ff',
-                      borderRadius: '8px',
-                      padding: '8px 12px',
-                      fontSize: '12px',
-                      color: '#666'
-                    }}>
-                      <strong>生成的 SQL：</strong>
-                      <pre style={{
-                        background: '#1e1e1e',
-                        color: '#d4d4d4',
-                        padding: '8px',
-                        borderRadius: '4px',
-                        marginTop: '4px',
-                        overflow: 'auto'
-                      }}>{msg.sqlGenerated}</pre>
+              <div className="msg-body">
+                <div className="msg-meta">
+                  {msg.role === 'user' ? '你' : 'AI 助手'}
+                  {msg.fromKnowledgeBase && (
+                    <span className="msg-badge"><IconBook size={11} /> 知识库</span>
+                  )}
+                  {msg.sqlGenerated && (
+                    <span className="msg-badge"><IconCode size={11} /> SQL</span>
+                  )}
+                </div>
+                <div className={`bubble ${msg.role}`}>
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+
+                  {msg.sqlResults && msg.sqlResults.length > 0 && (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table className="sql-result-table">
+                        <thead>
+                          <tr>
+                            {Object.keys(msg.sqlResults[0]).map(col => (
+                              <th key={col}>{col}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {msg.sqlResults.map((row, i) => (
+                            <tr key={i}>
+                              {Object.values(row).map((val, j) => (
+                                <td key={j}>{String(val)}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {msg.sqlGenerated && (
+                    <div className="sql-block">
+                      <div className="sql-head">
+                        <IconCode size={14} />
+                        生成的 SQL
+                      </div>
+                      <pre><code>{msg.sqlGenerated}</code></pre>
                       {msg.sqlExecutionSuccess === false && (
-                        <div style={{ color: '#ff4d4f', marginTop: '4px' }}>
-                          ❌ 执行失败：{msg.sqlErrorMessage}
+                        <div className="sql-status error">
+                          执行失败：{msg.sqlErrorMessage}
                         </div>
                       )}
                       {msg.sqlExecutionSuccess === true && (
-                        <div style={{ color: '#52c41a', marginTop: '4px' }}>
-                          ✅ 执行成功
-                        </div>
+                        <div className="sql-status success">执行成功</div>
                       )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           ))}
 
           {loading && (
-            <div className="message assistant">
-              <div className="message-label">AI 助手</div>
-              <div className="message-content">
-                <div className="loading">
-                  <div className="loading-dots">
+            <div className="message-row assistant">
+              <div className="msg-avatar"><IconChat size={16} /></div>
+              <div className="msg-body">
+                <div className="msg-meta">AI 助手</div>
+                <div className="bubble assistant">
+                  <div className="typing">
                     <span></span>
                     <span></span>
                     <span></span>
@@ -362,68 +383,69 @@ export default function Chat() {
         </div>
 
         {/* 输入区域 */}
-        <div className="chat-input-area">
-          <div className="chat-options">
-            {/* 知识库开关 */}
-            <button
-              className={`option-toggle ${useKnowledgeBase ? 'active' : ''}`}
-              onClick={() => setUseKnowledgeBase(!useKnowledgeBase)}
-              title="开启后，问题将先查询知识库"
-            >
-              <span className="toggle-dot"></span>
-              📚 知识库
-            </button>
-
-            {/* SQL Agent 开关 */}
-            <button
-              className={`option-toggle ${useSqlAgent ? 'active' : ''}`}
-              onClick={() => setUseSqlAgent(!useSqlAgent)}
-              title="开启后，将使用SQL Agent模式"
-            >
-              <span className="toggle-dot"></span>
-              🗄️ SQL Agent
-            </button>
-
-            {/* 数据源选择 */}
-            {useSqlAgent && (
-              <select
-                className="datasource-select"
-                value={selectedDataSource}
-                onChange={(e) => setSelectedDataSource(e.target.value)}
+        <div className="chat-footer">
+          <div className="chat-footer-inner">
+            <div className="chat-options">
+              <button
+                className={`chip ${useKnowledgeBase ? 'active' : ''}`}
+                onClick={() => setUseKnowledgeBase(!useKnowledgeBase)}
+                title="开启后，问题将先查询知识库"
               >
-                <option value="">选择数据源...</option>
-                {dataSources.map(ds => (
-                  <option key={ds.id} value={ds.id}>
-                    {ds.name} ({ds.dbType})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+                <span className="chip-dot"></span>
+                <IconBook size={14} />
+                知识库
+              </button>
 
-          <div className="chat-input-wrapper">
-            <textarea
-              className="chat-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                useSqlAgent && !selectedDataSource
-                  ? '请先选择数据源...'
-                  : useSqlAgent
-                    ? '请输入自然语言查询，例如：查询所有用户的姓名和邮箱...'
-                    : '请输入您的问题...'
-              }
-              rows={1}
-              disabled={useSqlAgent && !selectedDataSource}
-            />
-            <button
-              className="send-btn"
-              onClick={handleSend}
-              disabled={loading || !input.trim() || (useSqlAgent && !selectedDataSource)}
-            >
-              {loading ? '...' : '发送'}
-            </button>
+              <button
+                className={`chip ${useSqlAgent ? 'active' : ''}`}
+                onClick={() => setUseSqlAgent(!useSqlAgent)}
+                title="开启后，将使用 SQL Agent 模式"
+              >
+                <span className="chip-dot"></span>
+                <IconDatabase size={14} />
+                SQL Agent
+              </button>
+
+              {useSqlAgent && (
+                <select
+                  className="select"
+                  value={selectedDataSource}
+                  onChange={(e) => setSelectedDataSource(e.target.value)}
+                >
+                  <option value="">选择数据源...</option>
+                  {dataSources.map(ds => (
+                    <option key={ds.id} value={ds.id}>
+                      {ds.name} ({ds.dbType})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="input-row">
+              <textarea
+                className="chat-input"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  useSqlAgent && !selectedDataSource
+                    ? '请先选择数据源...'
+                    : useSqlAgent
+                      ? '请输入自然语言查询，例如：查询所有用户的姓名和邮箱...'
+                      : '请输入您的问题...'
+                }
+                rows={1}
+                disabled={useSqlAgent && !selectedDataSource}
+              />
+              <button
+                className="send-btn"
+                onClick={handleSend}
+                disabled={loading || !input.trim() || (useSqlAgent && !selectedDataSource)}
+              >
+                {loading ? '...' : (<><IconSend size={16} />发送</>)}
+              </button>
+            </div>
           </div>
         </div>
       </div>

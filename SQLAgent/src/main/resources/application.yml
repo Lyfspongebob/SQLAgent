@@ -8,17 +8,17 @@ spring:
       ddl-auto: update
     show-sql: true
 
-#  datasource:
-#    url: jdbc:mysql://localhost:3306/sqlagent
-#    username: root
-#    password: Lyf2005
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-
   datasource:
-    url: jdbc:mysql://rm-bp142f59xsa65axiw.mysql.rds.aliyuncs.com:3306/sqlagent?useSSL=false&serverTimezone=Asia/Shanghai
-    username: lyf_mysql
-    password: Lyf2005@
+    url: jdbc:mysql://localhost:3306/sqlagent
+    username: root
+    password: Lyf2005
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+#  datasource:
+#    url: jdbc:mysql://rm-bp142f59xsa65axiw.mysql.rds.aliyuncs.com:3306/sqlagent?useSSL=false&serverTimezone=Asia/Shanghai
+#    username: lyf_mysql
+#    password: Lyf2005@
+#    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
@@ -37,16 +37,16 @@ server:
 
 # DeepSeek API Configuration
 deepseek:
-  api-key: sk-892a1eb1d1a0400389ac01c27caff3a4
+  api-key: sk-3a7357a8b1fc4ed393c7e86ec5d263f1
   api-url: https://api.deepseek.com/v1/chat/completions
-  model: deepseek-chat
+  model: deepseek-v4-flash
 
 # ZhipuAI Knowledge Base Configuration
 zhipu:
-  api-key: b98b94fdb042463dbd96e4708e9dec11.p4mN7VI4gHRYb9Jk
-  knowledge-base-id: 1906275880188198912
+  api-key: 6c48266ed4a54164867424ffe8faf9a9.7lj6s114GJnTimMZ
+  knowledge-base-id: 1907606069656588288
   api-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-  model: glm-4-plus
+  model: glm-5.3
 
 # SQL Agent Configuration
 sql-agent:
