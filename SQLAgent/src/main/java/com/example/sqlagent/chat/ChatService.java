@@ -4,6 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.example.sqlagent.agent.SQLAgentService;
 import com.example.sqlagent.dto.ChatRequest;
 import com.example.sqlagent.dto.ChatResponse;
+import com.example.sqlagent.dto.ChatMessageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,9 @@ public class ChatService {
 
     @Autowired
     private SQLAgentService sqlAgentService;
+
+    @Autowired
+    private ChatResultCodec chatResultCodec;
 
     /**
      * 发送消息并获取回复
@@ -66,8 +70,7 @@ public class ChatService {
         assistantMessage.setContent(response.getReply());
         assistantMessage.setRole("assistant");
         assistantMessage.setSqlGenerated(response.getSqlGenerated());
-        assistantMessage.setSqlResults(response.getSqlResults() != null ?
-                response.getSqlResults().toString() : null);
+        assistantMessage.setSqlResults(chatResultCodec.serialize(response.getSqlResults()));
         assistantMessage.setSqlSuccess(response.getSqlExecutionSuccess());
         assistantMessage.setFromKnowledgeBase(response.getFromKnowledgeBase());
         chatMessageRepository.save(assistantMessage);
@@ -84,8 +87,31 @@ public class ChatService {
     /**
      * 获取会话历史
      */
-    public List<ChatMessage> getSessionHistory(Long sessionId) {
+    public List<ChatMessageResponse> getSessionHistory(Long sessionId) {
         long userId = StpUtil.getLoginIdAsLong();
-        return chatMessageRepository.findByUserIdAndSessionIdOrderByCreateTimeAsc(userId, sessionId);
+        return chatMessageRepository
+                .findByUserIdAndSessionIdOrderByCreateTimeAsc(userId, sessionId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private ChatMessageResponse toResponse(ChatMessage message) {
+        ChatResultCodec.DecodedSqlResults decoded =
+                chatResultCodec.deserialize(message.getSqlResults());
+
+        return ChatMessageResponse.builder()
+                .id(message.getId())
+                .sessionId(message.getSessionId())
+                .role(message.getRole())
+                .content(message.getContent())
+                .sqlGenerated(message.getSqlGenerated())
+                .sqlResults(decoded.rows())
+                .sqlResultText(decoded.rawText())
+                .sqlResultFormat(decoded.format())
+                .sqlExecutionSuccess(message.getSqlSuccess())
+                .fromKnowledgeBase(message.getFromKnowledgeBase())
+                .createTime(message.getCreateTime())
+                .build();
     }
 }
