@@ -8,7 +8,7 @@ function Svg({ size = 18, children, ...props }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.8}
+      strokeWidth={1.5}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -22,7 +22,7 @@ function Svg({ size = 18, children, ...props }) {
 export function Logo({ size = 24 }) {
   return (
     <span className="brand-mark" style={{ width: size, height: size }}>
-      <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
         <ellipse cx="12" cy="5" rx="8" ry="3" />
         <path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
         <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
@@ -132,6 +132,23 @@ export function IconX({ size = 16, ...props }) {
     <Svg size={size} {...props}>
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </Svg>
+  )
+}
+
+export function IconCopy({ size = 18, ...props }) {
+  return (
+    <Svg size={size} {...props}>
+      <rect x="9" y="9" width="12" height="12" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </Svg>
+  )
+}
+
+export function IconCheck({ size = 18, ...props }) {
+  return (
+    <Svg size={size} {...props}>
+      <polyline points="20 6 9 17 4 12" />
     </Svg>
   )
 }
