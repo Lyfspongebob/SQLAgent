@@ -162,234 +162,417 @@ export default function DataSourceConfig() {
 
   return (
     <div className="app">
-      {/* 侧边栏 */}
-      <div className="sidebar">
+      <aside className="sidebar">
         <div className="sidebar-head">
           <div className="sidebar-brand">
-            <Logo size={34} />
+            <Logo size={24} />
             <div>
               <div className="brand-name">SQL Agent</div>
-              <div className="brand-sub">智能 SQL 助手</div>
+              <div className="brand-sub">QUERY WORKSPACE</div>
             </div>
           </div>
           <ThemeToggle />
         </div>
 
-        <div className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="主导航">
+          <div className="nav-section-label">WORKSPACE</div>
           <Link to="/chat" className="nav-item">
-            <IconChat size={18} />
-            对话
+            <IconChat size={16} />
+            <span>查询工作台</span>
           </Link>
-          <div className="nav-item active">
-            <IconDatabase size={18} />
-            数据源配置
+          <Link to="/datasource" className="nav-item active" aria-current="page">
+            <IconDatabase size={16} />
+            <span>数据源</span>
+          </Link>
+        </nav>
+
+        <div className="sidebar-note">
+          <span className="nav-section-label">CONNECTION REGISTRY</span>
+          <p>集中管理查询可用的数据库连接与认证信息。</p>
+          <div className="sidebar-metric">
+            <span>{String(configs.length).padStart(2, '0')}</span>
+            <span>SAVED CONNECTIONS</span>
           </div>
         </div>
 
         <div className="sidebar-footer">
           <div className="user-box">
             <div className="avatar">{getInitial(user.nickname || user.username)}</div>
-            <span className="user-name">{user.nickname || user.username}</span>
+            <div className="user-copy">
+              <span className="user-name">{user.nickname || user.username || '未登录用户'}</span>
+              <span className="user-role">QUERY OPERATOR</span>
+            </div>
             <button className="logout-btn" onClick={handleLogout}>退出</button>
           </div>
         </div>
-      </div>
+      </aside>
 
-      {/* 主内容区域 */}
-      <div className="page">
-        <div className="page-head">
-          <div className="page-title">
-            <div className="title-icon"><IconDatabase size={20} /></div>
-            <div>
-              <h1>数据源配置</h1>
-              <p>管理用于查询的数据库连接</p>
+      <main className="main">
+        <header className="workspace-bar">
+          <div className="workspace-heading">
+            <span className="eyebrow">WORKSPACE / CONNECTIONS</span>
+            <h1>数据源</h1>
+          </div>
+          <div className="page-actions">
+            <span className="record-count">{configs.length} 个连接</span>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => {
+                resetForm()
+                setShowForm(!showForm)
+              }}
+            >
+              {showForm ? '取消' : (
+                <>
+                  <IconPlus size={15} />
+                  新增数据源
+                </>
+              )}
+            </button>
+          </div>
+        </header>
+
+        <div className="page-scroll">
+          <div className="page-content">
+            {error && (
+              <div className="form-error" role="alert">
+                <IconAlert size={15} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="notice-strip">
+              <span className="notice-icon">
+                <IconAlert size={15} />
+              </span>
+              <div className="notice-copy">
+                <strong>请确认数据库允许远程连接</strong>
+                <p>
+                  SQL Agent 部署在云端服务器时，需要通过公网访问数据库。数据库在本地时，
+                  可使用
+                  {' '}
+                  <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer">ngrok</a>
+                  {' '}
+                  或
+                  {' '}
+                  <a href="https://github.com/fatedier/frp" target="_blank" rel="noopener noreferrer">frp</a>
+                  {' '}
+                  建立内网穿透，或迁移到云数据库服务。
+                </p>
+              </div>
+            </div>
+
+            <div className="data-layout">
+              <section className="panel connection-panel" aria-labelledby="connection-list-title">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">CONNECTION REGISTRY</p>
+                    <h2 id="connection-list-title">已保存连接</h2>
+                  </div>
+                  <span className="record-count">{String(configs.length).padStart(2, '0')}</span>
+                </div>
+
+                <div className="connection-list">
+                  {configs.length === 0 ? (
+                    <div className="empty-state">
+                      <span className="empty-index">00</span>
+                      <p>还没有配置数据源</p>
+                      <p className="empty-hint">点击右上角「新增数据源」建立第一个连接。</p>
+                    </div>
+                  ) : (
+                    configs.map(config => {
+                      const isEditing = showForm && editingId === config.id
+                      return (
+                        <article
+                          key={config.id}
+                          className={`connection-row ${isEditing ? 'active' : ''}`}
+                        >
+                          <div className="connection-main">
+                            <div className="connection-title-row">
+                              <span className="connection-name">{config.name}</span>
+                              <span className="type-token">
+                                {dbTypeLabels[config.dbType] || config.dbType}
+                              </span>
+                            </div>
+                            <div className="connection-endpoint">
+                              <span>{config.host}:{config.port}</span>
+                              <span className="endpoint-divider">/</span>
+                              <span>{config.databaseName}</span>
+                            </div>
+                            {config.description && (
+                              <p className="connection-description">{config.description}</p>
+                            )}
+                          </div>
+
+                          <div className="connection-actions">
+                            <button
+                              type="button"
+                              className="icon-action"
+                              onClick={() => handleEdit(config)}
+                              aria-label={`编辑数据源 ${config.name}`}
+                            >
+                              <IconPencil size={14} />
+                              <span>编辑</span>
+                            </button>
+                            <button
+                              type="button"
+                              className="icon-action danger"
+                              onClick={() => handleDelete(config.id)}
+                              aria-label={`删除数据源 ${config.name}`}
+                            >
+                              <IconTrash size={14} />
+                              <span>删除</span>
+                            </button>
+                          </div>
+                        </article>
+                      )
+                    })
+                  )}
+                </div>
+              </section>
+
+              <section className="panel detail-panel" aria-labelledby="connection-detail-title">
+                {showForm ? (
+                  <>
+                    <div className="panel-head">
+                      <div>
+                        <p className="eyebrow">
+                          {editingId ? 'EDIT CONNECTION' : 'NEW CONNECTION'}
+                        </p>
+                        <h2 id="connection-detail-title">
+                          {editingId ? '编辑数据源' : '新增数据源'}
+                        </h2>
+                      </div>
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={resetForm}>
+                        取消
+                      </button>
+                    </div>
+
+                    <div className="form-body">
+                      <form onSubmit={handleSubmit}>
+                        <section className="form-section">
+                          <div className="section-heading">
+                            <span>01</span>
+                            <div>
+                              <h3>连接信息</h3>
+                              <p>用于定位数据库实例与目标库。</p>
+                            </div>
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor="data-source-name">数据源名称</label>
+                            <input
+                              id="data-source-name"
+                              className="input"
+                              type="text"
+                              value={form.name}
+                              onChange={(e) => setForm({ ...form, name: e.target.value })}
+                              placeholder="例如：课程实验数据库"
+                              autoComplete="off"
+                              required
+                            />
+                          </div>
+
+                          <div className="form-grid">
+                            <div className="field">
+                              <label htmlFor="data-source-type">数据库类型</label>
+                              <select
+                                id="data-source-type"
+                                className="input"
+                                value={form.dbType}
+                                onChange={(e) => {
+                                  const portMap = {
+                                    mysql: 3306,
+                                    postgresql: 5432,
+                                    sqlserver: 1433
+                                  }
+                                  setForm({
+                                    ...form,
+                                    dbType: e.target.value,
+                                    port: portMap[e.target.value]
+                                  })
+                                }}
+                              >
+                                <option value="mysql">MySQL</option>
+                                <option value="postgresql">PostgreSQL</option>
+                                <option value="sqlserver">SQL Server</option>
+                              </select>
+                            </div>
+
+                            <div className="field">
+                              <label htmlFor="data-source-host">主机地址</label>
+                              <input
+                                id="data-source-host"
+                                className="input"
+                                type="text"
+                                value={form.host}
+                                onChange={(e) => setForm({ ...form, host: e.target.value })}
+                                placeholder="localhost"
+                                autoComplete="off"
+                                spellCheck={false}
+                                required
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label htmlFor="data-source-port">端口</label>
+                              <input
+                                id="data-source-port"
+                                className="input"
+                                type="number"
+                                inputMode="numeric"
+                                value={form.port}
+                                onChange={(e) => setForm({
+                                  ...form,
+                                  port: parseInt(e.target.value)
+                                })}
+                                required
+                              />
+                            </div>
+
+                            <div className="field">
+                              <label htmlFor="data-source-database">数据库名</label>
+                              <input
+                                id="data-source-database"
+                                className="input"
+                                type="text"
+                                value={form.databaseName}
+                                onChange={(e) => setForm({
+                                  ...form,
+                                  databaseName: e.target.value
+                                })}
+                                placeholder="数据库名称"
+                                autoComplete="off"
+                                spellCheck={false}
+                                required
+                              />
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className="form-section">
+                          <div className="section-heading">
+                            <span>02</span>
+                            <div>
+                              <h3>认证信息</h3>
+                              <p>凭据仅用于建立数据库连接。</p>
+                            </div>
+                          </div>
+
+                          <div className="form-grid">
+                            <div className="field">
+                              <label htmlFor="data-source-username">用户名</label>
+                              <input
+                                id="data-source-username"
+                                className="input"
+                                type="text"
+                                value={form.username}
+                                onChange={(e) => setForm({
+                                  ...form,
+                                  username: e.target.value
+                                })}
+                                placeholder="root"
+                                autoComplete="username"
+                                spellCheck={false}
+                                required
+                              />
+                            </div>
+
+                            <div className="field">
+                              <div className="field-label-row">
+                                <label htmlFor="data-source-password">密码</label>
+                                {editingId && <span className="field-hint">留空则不修改</span>}
+                              </div>
+                              <input
+                                id="data-source-password"
+                                className="input"
+                                type="password"
+                                value={form.password}
+                                onChange={(e) => setForm({
+                                  ...form,
+                                  password: e.target.value
+                                })}
+                                placeholder={editingId ? '留空保持原密码' : '输入数据库密码'}
+                                autoComplete="new-password"
+                                required={!editingId}
+                              />
+                            </div>
+                          </div>
+                        </section>
+
+                        <section className="form-section">
+                          <div className="section-heading">
+                            <span>03</span>
+                            <div>
+                              <h3>备注</h3>
+                              <p>说明连接用途，便于后续识别。</p>
+                            </div>
+                          </div>
+
+                          <div className="field">
+                            <label htmlFor="data-source-description">描述</label>
+                            <input
+                              id="data-source-description"
+                              className="input"
+                              type="text"
+                              value={form.description}
+                              onChange={(e) => setForm({
+                                ...form,
+                                description: e.target.value
+                              })}
+                              placeholder="例如：数据库原理课程实验数据"
+                              autoComplete="off"
+                            />
+                          </div>
+                        </section>
+
+                        <div className="form-actions">
+                          <button
+                            type="button"
+                            className="btn btn-test"
+                            onClick={handleTestConnection}
+                            disabled={testing}
+                          >
+                            <IconLink size={14} />
+                            {testing ? '正在测试…' : '测试连接'}
+                          </button>
+                          <button
+                            type="submit"
+                            className="btn btn-primary"
+                            disabled={loading}
+                          >
+                            <IconSave size={14} />
+                            {loading ? '正在保存…' : '保存连接'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </>
+                ) : (
+                  <div className="detail-empty">
+                    <span className="detail-index">02</span>
+                    <p className="eyebrow">NO CONNECTION SELECTED</p>
+                    <h2 id="connection-detail-title">选择一个连接进行编辑</h2>
+                    <p>从左侧列表选择数据源，或创建一个新的数据库连接。</p>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => {
+                        resetForm()
+                        setShowForm(true)
+                      }}
+                    >
+                      <IconPlus size={14} />
+                      新增数据源
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => { resetForm(); setShowForm(!showForm) }}
-          >
-            {showForm ? '取消' : (<><IconPlus size={16} />新增数据源</>)}
-          </button>
         </div>
-
-        {error && (
-          <div className="form-error">
-            <IconAlert size={16} />
-            {error}
-          </div>
-        )}
-
-        {/* 远程连接提示 */}
-        <div className="tip-card">
-          <span className="tip-icon"><IconAlert size={18} /></span>
-          <div className="tip-content">
-            <strong>请确保你的数据库允许远程连接</strong>
-            <p>SQLAgent 部署在云端服务器，需要通过公网访问你的数据库。如果数据库在本地，请使用内网穿透工具（如 <a href="https://ngrok.com" target="_blank" rel="noopener noreferrer">ngrok</a>、<a href="https://github.com/fatedier/frp" target="_blank" rel="noopener noreferrer">frp</a>）或将数据库迁移到云服务（如 <a href="https://www.aliyun.com/product/rds" target="_blank" rel="noopener noreferrer">阿里云 RDS</a>）。</p>
-          </div>
-        </div>
-
-        {/* 配置表单 */}
-        {showForm && (
-          <div className="card">
-            <div className="card-title">{editingId ? '编辑数据源' : '新增数据源'}</div>
-            <form onSubmit={handleSubmit}>
-              <div className="field">
-                <label>数据源名称</label>
-                <input
-                  className="input"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="例如：生产数据库"
-                  required
-                />
-              </div>
-
-              <div className="form-grid">
-                <div className="field">
-                  <label>数据库类型</label>
-                  <select
-                    className="input"
-                    value={form.dbType}
-                    onChange={(e) => {
-                      const portMap = { mysql: 3306, postgresql: 5432, sqlserver: 1433 }
-                      setForm({ ...form, dbType: e.target.value, port: portMap[e.target.value] })
-                    }}
-                  >
-                    <option value="mysql">MySQL</option>
-                    <option value="postgresql">PostgreSQL</option>
-                    <option value="sqlserver">SQL Server</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label>主机地址</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={form.host}
-                    onChange={(e) => setForm({ ...form, host: e.target.value })}
-                    placeholder="localhost"
-                    required
-                  />
-                </div>
-
-                <div className="field">
-                  <label>端口</label>
-                  <input
-                    className="input"
-                    type="number"
-                    value={form.port}
-                    onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) })}
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label>数据库名</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={form.databaseName}
-                    onChange={(e) => setForm({ ...form, databaseName: e.target.value })}
-                    placeholder="数据库名称"
-                    required
-                  />
-                </div>
-
-                <div className="field">
-                  <label>用户名</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={form.username}
-                    onChange={(e) => setForm({ ...form, username: e.target.value })}
-                    placeholder="root"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label>密码</label>
-                  <input
-                    className="input"
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    placeholder={editingId ? '留空则不修改' : '请输入密码'}
-                    required={!editingId}
-                  />
-                </div>
-
-                <div className="field full">
-                  <label>描述（可选）</label>
-                  <input
-                    className="input"
-                    type="text"
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    placeholder="数据源用途说明"
-                  />
-                </div>
-              </div>
-
-              <div className="btn-group">
-                <button
-                  type="button"
-                  className="btn btn-test"
-                  onClick={handleTestConnection}
-                  disabled={testing}
-                >
-                  <IconLink size={16} />
-                  {testing ? '测试中...' : '测试连接'}
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  <IconSave size={16} />
-                  {loading ? '保存中...' : '保存'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* 数据源列表 */}
-        <div className="ds-list">
-          {configs.length === 0 ? (
-            <div className="empty-state">
-              <div className="empty-icon"><IconDatabase size={26} /></div>
-              <p>还没有配置数据源</p>
-              <p className="empty-hint">点击上方「新增数据源」按钮开始配置</p>
-            </div>
-          ) : (
-            configs.map(config => (
-              <div key={config.id} className="ds-item">
-                <div className="ds-info">
-                  <div className="ds-name">
-                    {config.name}
-                    <span className="ds-type">{dbTypeLabels[config.dbType] || config.dbType}</span>
-                  </div>
-                  <div className="ds-meta">
-                    {config.host}:{config.port} · {config.databaseName}
-                    {config.description && ` · ${config.description}`}
-                  </div>
-                </div>
-                <div className="ds-actions">
-                  <button className="btn-edit" onClick={() => handleEdit(config)}>
-                    <IconPencil size={14} />
-                    编辑
-                  </button>
-                  <button className="btn-delete" onClick={() => handleDelete(config.id)}>
-                    <IconTrash size={14} />
-                    删除
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      </main>
     </div>
   )
 }

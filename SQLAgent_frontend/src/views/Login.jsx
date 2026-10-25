@@ -34,48 +34,65 @@ export default function Login() {
 
   return (
     <AuthLayout>
-      <div className="auth-brand">
-        <div className="brand-title">欢迎回来</div>
-        <div className="brand-subtitle">登录你的账号，开始数据查询</div>
-      </div>
+      <header className="auth-form-head">
+        <p className="eyebrow">SIGN IN / SESSION</p>
+        <h1>欢迎回来</h1>
+        <p>登录你的账号，继续查看查询记录与执行结果。</p>
+      </header>
 
       {error && (
-        <div className="form-error">
-          <IconAlert size={16} />
-          {error}
+        <div className="form-error" role="alert">
+          <IconAlert size={15} />
+          <span>{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         <div className="field">
-          <label>用户名</label>
+          <label htmlFor="login-username">用户名</label>
           <input
+            id="login-username"
             className="input"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="请输入用户名"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
           />
         </div>
+
         <div className="field">
-          <label>密码</label>
+          <div className="field-label-row">
+            <label htmlFor="login-password">密码</label>
+            <span className="field-hint">区分大小写</span>
+          </div>
           <input
+            id="login-password"
             className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="请输入密码"
+            autoComplete="current-password"
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-          {loading ? '登录中...' : '登录'}
+
+        <button
+          type="submit"
+          className="btn btn-primary btn-block"
+          disabled={loading}
+        >
+          {loading ? '正在验证…' : '进入工作台'}
         </button>
       </form>
 
       <div className="auth-footer">
-        还没有账号？<Link to="/register">立即注册</Link>
+        <span>还没有账号？</span>
+        <Link to="/register">创建账号</Link>
       </div>
     </AuthLayout>
   )

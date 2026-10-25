@@ -10,8 +10,8 @@ export const chatApi = {
       dataSourceConfigId
     })
   },
-  getHistory(sessionId) {
-    return api.get(`/chat/history/${sessionId}`)
+  getHistory(sessionId, config = {}) {
+    return api.get(`/chat/history/${sessionId}`, config)
   },
   getSessions() {
     return api.get('/chat/sessions')

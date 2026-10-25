@@ -23,7 +23,7 @@ export default function Register() {
     }
 
     if (password.length < 6) {
-      setError('密码长度不能少于6位')
+      setError('密码长度不能少于 6 位')
       return
     }
 
@@ -45,69 +45,95 @@ export default function Register() {
 
   return (
     <AuthLayout>
-      <div className="auth-brand">
-        <div className="brand-title">创建账号</div>
-        <div className="brand-subtitle">注册后即可使用 SQL Agent</div>
-      </div>
+      <header className="auth-form-head">
+        <p className="eyebrow">CREATE / ACCOUNT</p>
+        <h1>创建账号</h1>
+        <p>注册后即可进入查询工作台，保存数据源与会话记录。</p>
+      </header>
 
       {error && (
-        <div className="form-error">
-          <IconAlert size={16} />
-          {error}
+        <div className="form-error" role="alert">
+          <IconAlert size={15} />
+          <span>{error}</span>
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-form" onSubmit={handleSubmit}>
         <div className="field">
-          <label>用户名</label>
+          <label htmlFor="register-username">用户名</label>
           <input
+            id="register-username"
             className="input"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder="请输入用户名"
+            placeholder="设置登录用户名"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
           />
         </div>
+
         <div className="field">
-          <label>昵称（可选）</label>
+          <div className="field-label-row">
+            <label htmlFor="register-nickname">昵称</label>
+            <span className="field-hint">可选</span>
+          </div>
           <input
+            id="register-nickname"
             className="input"
             type="text"
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
-            placeholder="请输入昵称"
+            placeholder="用于工作台显示"
+            autoComplete="nickname"
           />
         </div>
+
         <div className="field">
-          <label>密码</label>
+          <div className="field-label-row">
+            <label htmlFor="register-password">密码</label>
+            <span className="field-hint">至少 6 位</span>
+          </div>
           <input
+            id="register-password"
             className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="请输入密码（至少6位）"
+            placeholder="设置登录密码"
+            autoComplete="new-password"
             required
           />
         </div>
+
         <div className="field">
-          <label>确认密码</label>
+          <label htmlFor="register-confirm-password">确认密码</label>
           <input
+            id="register-confirm-password"
             className="input"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="请再次输入密码"
+            placeholder="再次输入密码"
+            autoComplete="new-password"
             required
           />
         </div>
-        <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading}>
-          {loading ? '注册中...' : '注册'}
+
+        <button
+          type="submit"
+          className="btn btn-primary btn-block"
+          disabled={loading}
+        >
+          {loading ? '正在创建…' : '创建账号'}
         </button>
       </form>
 
       <div className="auth-footer">
-        已有账号？<Link to="/login">立即登录</Link>
+        <span>已有账号？</span>
+        <Link to="/login">返回登录</Link>
       </div>
     </AuthLayout>
   )
