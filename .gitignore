@@ -1,0 +1,13 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Java / Gradle
+.gradle/
+build/
+**/build/
+
+# Node / Vite
+node_modules/
+*.log
