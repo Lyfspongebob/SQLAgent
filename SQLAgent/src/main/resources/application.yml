@@ -11,13 +11,13 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/sqlagent
     username: root
-    password: Lyf2005
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 #  datasource:
 #    url: jdbc:mysql://rm-bp142f59xsa65axiw.mysql.rds.aliyuncs.com:3306/sqlagent?useSSL=false&serverTimezone=Asia/Shanghai
 #    username: lyf_mysql
-#    password: Lyf2005@
+#    password: ${DB_PASSWORD:}
 #    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jackson:
@@ -37,19 +37,31 @@ server:
 
 # DeepSeek API Configuration
 deepseek:
-  api-key: sk-3a7357a8b1fc4ed393c7e86ec5d263f1
+  api-key: ${DEEPSEEK_API_KEY:}
   api-url: https://api.deepseek.com/v1/chat/completions
   model: deepseek-v4-flash
 
 # ZhipuAI Knowledge Base Configuration
 zhipu:
-  api-key: 6c48266ed4a54164867424ffe8faf9a9.7lj6s114GJnTimMZ
-  knowledge-base-id: 1907606069656588288
+  api-key: ${ZHIPU_API_KEY:}
+  knowledge-base-id: 1906275880188198912
   api-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-  model: glm-5.3
+  retrieval-url: https://open.bigmodel.cn/api/llm-application/open/knowledge/retrieve
+  model: glm-4.6
+  top-k: 5
+  top-n: 20
+  recall-method: mixed
 
 # SQL Agent Configuration
 sql-agent:
   max-retry-times: 3
   vote-count: 10
   temperature: 0.8
+
+# Schema 获取策略（对比实验用）：A  local-cache / B  knowledge-base / C  realtime
+schema:
+  strategy: knowledge-base
+
+logging:
+  level:
+    com.example.sqlagent.agent.KnowledgeBaseService: DEBUG

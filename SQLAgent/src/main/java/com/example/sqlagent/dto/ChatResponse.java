@@ -20,4 +20,5 @@ public class ChatResponse {
     private String sqlErrorMessage;
     private Boolean fromKnowledgeBase;
     private String knowledgeBaseContent;
+    private String knowledgeBaseError;
 }

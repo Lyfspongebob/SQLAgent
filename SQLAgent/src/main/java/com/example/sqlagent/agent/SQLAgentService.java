@@ -43,39 +43,61 @@ public class SQLAgentService {
     /**
      * 处理聊天请求
      * 流程：
-     * 1. 如果启用知识库，先通过智谱对话 API + tools.retrieval 查询知识库
-     *    （智谱会自动检索知识库并基于知识库内容回答，返回的是 AI 润色后的回答）
-     * 2. 如果启用 SQL Agent，将知识库回答作为上下文注入到 SQL 生成的 prompt 中
-     * 3. 如果只启用知识库（无 SQL Agent），直接使用智谱返回的回答
+     * 1. 如果启用知识库，先调用智谱检索 API 获取真实文档片段
+     * 2. 如果同时启用 SQL Agent，将召回片段作为上下文交给 DeepSeek 生成 SQL
+     * 3. 如果只启用知识库，将召回片段交给智谱模型生成回答
      */
     public ChatResponse processChat(String userMessage, Long sessionId,
                                      Boolean useKnowledgeBase, Boolean useSqlAgent,
                                      Long dataSourceConfigId) {
 
         ChatResponse response = new ChatResponse();
+        KnowledgeBaseResult knowledgeResult = KnowledgeBaseResult.empty();
+        String knowledgeError = null;
 
-        // 1. 知识库查询（如果启用）
-        String kbResult = null;
+        // 1. 知识库检索（如果启用）
         if (Boolean.TRUE.equals(useKnowledgeBase)) {
-            kbResult = knowledgeBaseService.queryKnowledgeBase(userMessage);
-            if (kbResult != null && !kbResult.isEmpty()) {
+            try {
+                knowledgeResult = knowledgeBaseService.retrieve(userMessage);
+            } catch (KnowledgeBaseService.KnowledgeBaseException e) {
+                knowledgeError = e.getMessage();
+                log.error("知识库检索失败: {}", knowledgeError);
+            }
+
+            if (knowledgeResult.found()) {
                 response.setFromKnowledgeBase(true);
-                response.setKnowledgeBaseContent(kbResult);
-                log.info("知识库查询到相关内容，长度: {}", kbResult.length());
+                response.setKnowledgeBaseContent(knowledgeResult.context());
+                log.info("知识库召回相关内容，片段数: {}, 上下文长度: {}",
+                        knowledgeResult.sources().size(), knowledgeResult.context().length());
             } else {
-                log.info("知识库未查询到相关内容");
+                log.info("知识库未召回相关内容");
+            }
+
+            if (knowledgeError != null) {
+                response.setKnowledgeBaseError(knowledgeError);
             }
         }
 
         // 2. SQL Agent 模式（如果启用且配置了数据源）
         if (Boolean.TRUE.equals(useSqlAgent) && dataSourceConfigId != null) {
-            return processSQLQuery(userMessage, dataSourceConfigId, kbResult, response);
+            return processSQLQuery(userMessage, dataSourceConfigId, knowledgeResult.context(), response);
         }
 
         // 3. 普通对话模式
-        //    知识库已由智谱 AI 自动润色回答，直接使用
-        if (kbResult != null) {
-            response.setReply(kbResult);
+        if (knowledgeResult.found()) {
+            try {
+                response.setReply(knowledgeBaseService.answer(userMessage, knowledgeResult));
+            } catch (KnowledgeBaseService.KnowledgeBaseException e) {
+                response.setFromKnowledgeBase(false);
+                response.setKnowledgeBaseError(e.getMessage());
+                response.setReply("知识库已检索到相关内容，但生成回答失败：" + e.getMessage());
+            }
+        } else if (Boolean.TRUE.equals(useKnowledgeBase)) {
+            if (knowledgeError != null) {
+                response.setReply("知识库检索失败：" + knowledgeError);
+            } else {
+                response.setReply("知识库中未检索到与问题相关的内容。");
+            }
         } else {
             String reply = deepSeekService.normalChat(userMessage, null);
             response.setReply(reply);
