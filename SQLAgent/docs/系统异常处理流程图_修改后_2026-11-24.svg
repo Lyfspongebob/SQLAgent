@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1920"
+     height="1640"
+     viewBox="0 0 1920 1640"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">SQL Agent 修改后的异常处理流程</title>
+  <desc id="desc">展示请求、统一异常、Agent 可恢复错误、全局异常处理和前端错误展示流程</desc>
+
+  <defs>
+    <style>
+      .title { font: 700 34px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 17px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #64748b; }
+      .lane { font: 700 16px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .box-title { font: 700 19px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .box-text { font: 400 15px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #334155; }
+      .small { font: 400 13px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .edge { font: 600 13px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .client { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+      .filter { fill: #ccfbf1; stroke: #0f766e; stroke-width: 2; }
+      .server { fill: #ede9fe; stroke: #7c3aed; stroke-width: 2; }
+      .expected { fill: #fffbeb; stroke: #d97706; stroke-width: 2; }
+      .error { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; }
+      .success { fill: #dcfce7; stroke: #16a34a; stroke-width: 2; }
+      .neutral { fill: #f1f5f9; stroke: #475569; stroke-width: 2; }
+      .arrow { fill: none; stroke: #475569; stroke-width: 2.3; marker-end: url(#arrow); }
+      .arrow-red { fill: none; stroke: #dc2626; stroke-width: 2.3; marker-end: url(#arrow-red); }
+      .arrow-green { fill: none; stroke: #16a34a; stroke-width: 2.3; marker-end: url(#arrow-green); }
+      .dash { stroke-dasharray: 7 6; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+  </defs>
+
+  <rect width="1920" height="1640" fill="#f8fafc"/>
+  <rect x="24" y="24" width="1872" height="1592" rx="28" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text x="70" y="75" class="title">SQL Agent 修改后异常处理流程</text>
+  <text x="70" y="108" class="subtitle">
+    统一错误码 · requestId 追踪 · 全局异常出口 · Agent 可恢复错误与请求级异常分层
+  </text>
+
+  <!-- 请求进入 -->
+  <text x="70" y="160" class="lane">01  请求进入</text>
+  <rect x="720" y="145" width="480" height="76" rx="16" class="client"/>
+  <text x="960" y="177" text-anchor="middle" class="box-title">React 前端请求</text>
+  <text x="960" y="202" text-anchor="middle" class="box-text">Axios 携带 satoken 调用 /api/**</text>
+
+  <rect x="720" y="260" width="480" height="72" rx="16" class="filter"/>
+  <text x="960" y="291" text-anchor="middle" class="box-title">RequestIdFilter</text>
+  <text x="960" y="315" text-anchor="middle" class="box-text">生成 requestId，写入 Header / MDC / Request</text>
+
+  <rect x="720" y="371" width="480" height="72" rx="16" class="filter"/>
+  <text x="960" y="402" text-anchor="middle" class="box-title">Sa-Token 鉴权拦截</text>
+  <text x="960" y="426" text-anchor="middle" class="box-text">已登录继续；未登录抛出 NotLoginException</text>
+
+  <rect x="720" y="486" width="480" height="72" rx="16" class="server"/>
+  <text x="960" y="517" text-anchor="middle" class="box-title">Controller</text>
+  <text x="960" y="541" text-anchor="middle" class="box-text">不再捕获 RuntimeException，只返回成功结果</text>
+
+  <rect x="720" y="601" width="480" height="72" rx="16" class="server"/>
+  <text x="960" y="632" text-anchor="middle" class="box-title">Service / SQLAgentService2</text>
+  <text x="960" y="656" text-anchor="middle" class="box-text">校验业务规则、调用外部服务、执行只读 SQL</text>
+
+  <path d="M960 221 L960 260" class="arrow"/>
+  <path d="M960 332 L960 371" class="arrow"/>
+  <path d="M960 443 L960 486" class="arrow"/>
+  <path d="M960 558 L960 601" class="arrow"/>
+
+  <!-- Token 失败 -->
+  <path d="M720 407 L440 407 L440 745" class="arrow-red"/>
+  <rect x="80" y="745" width="360" height="118" rx="16" class="error"/>
+  <text x="260" y="779" text-anchor="middle" class="box-title">未登录 / Token 失效</text>
+  <text x="260" y="808" text-anchor="middle" class="box-text">NotLoginException</text>
+  <text x="260" y="835" text-anchor="middle" class="small">由全局异常处理器转换为 401</text>
+
+  <!-- 异常分类 -->
+  <text x="70" y="720" class="lane">02  异常分类与捕获边界</text>
+
+  <path d="M960 673 L960 705 L280 705 L280 745" class="arrow"/>
+  <path d="M960 705 L720 705 L720 745" class="arrow"/>
+  <path d="M960 705 L1140 705 L1140 745" class="arrow"/>
+  <path d="M960 705 L1595 705 L1595 745" class="arrow"/>
+
+  <rect x="80" y="745" width="400" height="138" rx="16" class="error"/>
+  <text x="280" y="780" text-anchor="middle" class="box-title">请求 / 业务异常</text>
+  <text x="280" y="810" text-anchor="middle" class="box-text">ValidationException · NotFoundException</text>
+  <text x="280" y="837" text-anchor="middle" class="box-text">ConflictException · ForbiddenException</text>
+  <text x="280" y="864" text-anchor="middle" class="small">携带 ErrorCode + details</text>
+
+  <rect x="520" y="745" width="400" height="138" rx="16" class="error"/>
+  <text x="720" y="780" text-anchor="middle" class="box-title">认证异常</text>
+  <text x="720" y="810" text-anchor="middle" class="box-text">AuthenticationException</text>
+  <text x="720" y="837" text-anchor="middle" class="box-text">INVALID_CREDENTIALS</text>
+  <text x="720" y="864" text-anchor="middle" class="small">HTTP 401，仅登录接口不触发跳转</text>
+
+  <rect x="960" y="745" width="400" height="138" rx="16" class="error"/>
+  <text x="1160" y="780" text-anchor="middle" class="box-title">外部 / 数据库异常</text>
+  <text x="1160" y="810" text-anchor="middle" class="box-text">UpstreamServiceException</text>
+  <text x="1160" y="837" text-anchor="middle" class="box-text">DataAccessException</text>
+  <text x="1160" y="864" text-anchor="middle" class="small">DeepSeek / 知识库 / 主库访问失败</text>
+
+  <rect x="1395" y="745" width="450" height="205" rx="16" class="expected"/>
+  <text x="1620" y="781" text-anchor="middle" class="box-title">Agent 候选级异常</text>
+  <text x="1620" y="812" text-anchor="middle" class="box-text">SqlValidationException</text>
+  <text x="1620" y="839" text-anchor="middle" class="box-text">CandidateExecutionException</text>
+  <text x="1620" y="869" text-anchor="middle" class="small">在候选循环或反馈修正中捕获</text>
+  <text x="1620" y="897" text-anchor="middle" class="small">属于可恢复业务流程，不直接抛给 Controller</text>
+  <text x="1620" y="925" text-anchor="middle" class="box-text">筛选失败候选，继续安全候选</text>
+
+  <!-- 全局异常处理 -->
+  <text x="70" y="1005" class="lane">03  全局异常出口</text>
+  <path d="M280 883 L280 1030 L520 1030" class="arrow-red"/>
+  <path d="M720 883 L720 1030" class="arrow-red"/>
+  <path d="M1160 883 L1160 1030 L920 1030" class="arrow-red"/>
+  <path d="M260 863 L260 955 L520 955 L520 1000" class="arrow-red"/>
+
+  <rect x="520" y="995" width="400" height="130" rx="18" class="neutral"/>
+  <text x="720" y="1031" text-anchor="middle" class="box-title">GlobalExceptionHandler</text>
+  <text x="720" y="1062" text-anchor="middle" class="box-text">映射 HTTP 状态与稳定 errorCode</text>
+  <text x="720" y="1089" text-anchor="middle" class="small">写入 requestId、details；隐藏未知异常详情</text>
+  <text x="720" y="1114" text-anchor="middle" class="small">401 · 403 · 404 · 409 · 422 · 500 · 502</text>
+
+  <rect x="520" y="1195" width="400" height="140" rx="18" class="error"/>
+  <text x="720" y="1230" text-anchor="middle" class="box-title">统一错误响应</text>
+  <text x="720" y="1260" text-anchor="middle" class="box-text">HTTP 4xx / 5xx</text>
+  <text x="720" y="1288" text-anchor="middle" class="box-text">success=false · code · errorCode</text>
+  <text x="720" y="1315" text-anchor="middle" class="small">message · requestId · details</text>
+  <path d="M720 1125 L720 1195" class="arrow-red"/>
+
+  <!-- Agent 业务失败 -->
+  <rect x="1395" y="995" width="450" height="150" rx="18" class="expected"/>
+  <text x="1620" y="1031" text-anchor="middle" class="box-title">ChatResponse 业务失败</text>
+  <text x="1620" y="1062" text-anchor="middle" class="box-text">HTTP 200 + ApiResponse.success</text>
+  <text x="1620" y="1090" text-anchor="middle" class="box-text">sqlExecutionSuccess=false</text>
+  <text x="1620" y="1110" text-anchor="middle" class="small">errorCode：NO_SAFE_CANDIDATE</text>
+  <text x="1620" y="1132" text-anchor="middle" class="small">NO_RESULT_CONSENSUS · QUERY_EXECUTION_FAILED</text>
+  <path d="M1620 950 L1620 995" class="arrow"/>
+
+  <!-- 成功路径 -->
+  <rect x="1395" y="526" width="450" height="124" rx="18" class="success"/>
+  <text x="1620" y="562" text-anchor="middle" class="box-title">可继续成功路径</text>
+  <text x="1620" y="593" text-anchor="middle" class="box-text">有安全候选 / 修复成功 / 结果共识明确</text>
+  <text x="1620" y="624" text-anchor="middle" class="small">HTTP 200 · ApiResponse.success · sqlExecutionSuccess=true</text>
+  <path d="M1200 637 L1395 588" class="arrow-green"/>
+
+  <!-- 前端 -->
+  <text x="70" y="1415" class="lane">04  前端展示</text>
+  <rect x="270" y="1430" width="1200" height="100" rx="18" class="client"/>
+  <text x="870" y="1462" text-anchor="middle" class="box-title">Axios 拦截与统一错误适配</text>
+  <text x="870" y="1492" text-anchor="middle" class="box-text">
+    formatApiError 提取 message + errorCode + requestId；登录接口的 401 不清 token、不自动跳转
+  </text>
+  <text x="870" y="1517" text-anchor="middle" class="small">表单错误、连接测试错误、聊天失败消息使用同一提取逻辑</text>
+  <path d="M720 1335 L720 1430" class="arrow-red"/>
+
+  <path d="M1620 1135 L1620 1195" class="arrow"/>
+  <rect x="1395" y="1195" width="450" height="140" rx="18" class="success"/>
+  <text x="1620" y="1230" text-anchor="middle" class="box-title">聊天业务失败 UI</text>
+  <text x="1620" y="1260" text-anchor="middle" class="box-text">显示 reply 与独立错误面板</text>
+  <text x="1620" y="1288" text-anchor="middle" class="small">没有 sqlGenerated 时也展示 sqlErrorMessage</text>
+  <text x="1620" y="1315" text-anchor="middle" class="small">历史消息继续显示业务解释</text>
+  <path d="M1620 1335 L1620 1380 L1170 1380 L1170 1430" class="arrow"/>
+
+  <!-- 图例 -->
+  <rect x="70" y="1560" width="145" height="54" rx="12" class="client"/>
+  <text x="142" y="1593" text-anchor="middle" class="small">前端 / API 调用</text>
+  <rect x="225" y="1560" width="145" height="54" rx="12" class="server"/>
+  <text x="297" y="1593" text-anchor="middle" class="small">后端处理</text>
+  <rect x="380" y="1560" width="145" height="54" rx="12" class="error"/>
+  <text x="452" y="1593" text-anchor="middle" class="small">请求级异常</text>
+  <rect x="535" y="1560" width="165" height="54" rx="12" class="expected"/>
+  <text x="617" y="1593" text-anchor="middle" class="small">Agent 可恢复失败</text>
+
+  <text x="1840" y="1605" text-anchor="end" class="small">
+    SQLAgent · 修改后异常处理流程 · 2026-11-24
+  </text>
+</svg>

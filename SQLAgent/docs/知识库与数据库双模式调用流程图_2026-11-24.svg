@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="2240"
+     height="2840"
+     viewBox="0 0 2240 2840"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">知识库 RAG 与 SQL Agent 双模式调用流程</title>
+  <desc id="desc">展示知识库开关和 SQL Agent 开关组合下的模型、知识库和目标数据库调用路径</desc>
+
+  <defs>
+    <style>
+      .title { font: 700 34px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 16px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #64748b; }
+      .stage { font: 700 16px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .box-title { font: 700 19px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .box-text { font: 400 15px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #334155; }
+      .small { font: 400 13px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .code { font: 600 14px "Cascadia Code", "Microsoft YaHei", monospace; fill: #0f172a; }
+      .entry { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+      .decision { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; }
+      .rag { fill: #ccfbf1; stroke: #0f766e; stroke-width: 2; }
+      .zhipu { fill: #cffafe; stroke: #0891b2; stroke-width: 2; }
+      .deepseek { fill: #ede9fe; stroke: #7c3aed; stroke-width: 2; }
+      .db { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+      .success { fill: #dcfce7; stroke: #16a34a; stroke-width: 2; }
+      .error { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; }
+      .neutral { fill: #f1f5f9; stroke: #475569; stroke-width: 2; }
+      .arrow { fill: none; stroke: #475569; stroke-width: 2.5; marker-end: url(#arrow); }
+      .arrow-rag { fill: none; stroke: #0f766e; stroke-width: 2.5; marker-end: url(#arrow-rag); }
+      .arrow-zhipu { fill: none; stroke: #0891b2; stroke-width: 2.5; marker-end: url(#arrow-zhipu); }
+      .arrow-deepseek { fill: none; stroke: #7c3aed; stroke-width: 2.5; marker-end: url(#arrow-deepseek); }
+      .arrow-green { fill: none; stroke: #16a34a; stroke-width: 2.5; marker-end: url(#arrow-green); }
+      .arrow-red { fill: none; stroke: #dc2626; stroke-width: 2.5; marker-end: url(#arrow-red); }
+      .dash { stroke-dasharray: 8 6; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-rag" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrow-zhipu" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0891b2"/>
+    </marker>
+    <marker id="arrow-deepseek" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/>
+    </marker>
+  </defs>
+
+  <rect width="2240" height="2840" fill="#f8fafc"/>
+  <rect x="24" y="24" width="2192" height="2792" rx="30" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text x="70" y="73" class="title">知识库 RAG 与 SQL Agent 双模式调用流程</text>
+  <text x="70" y="105" class="subtitle">
+    当前实际实现 · 智谱负责知识检索与纯 RAG 回答 · DeepSeek 负责 SQL 生成与普通对话
+  </text>
+
+  <!-- Entry -->
+  <text x="70" y="160" class="stage">01  模式入口</text>
+  <rect x="720" y="145" width="800" height="92" rx="18" class="entry"/>
+  <text x="1120" y="178" text-anchor="middle" class="box-title">用户问题 + 两个开关 + 数据源</text>
+  <text x="1120" y="207" text-anchor="middle" class="box-text">
+    useKnowledgeBase · useSqlAgent · dataSourceConfigId
+  </text>
+
+  <path d="M1120 237 L1120 285" class="arrow"/>
+  <polygon points="1120,285 1430,360 1120,435 810,360" class="decision"/>
+  <text x="1120" y="351" text-anchor="middle" class="box-title">是否开启知识库？</text>
+  <text x="1120" y="379" text-anchor="middle" class="small">useKnowledgeBase = true ?</text>
+
+  <!-- Knowledge path -->
+  <path d="M810 360 L610 360 L610 480" class="arrow-rag"/>
+  <text x="700" y="344" text-anchor="middle" class="small">是</text>
+  <rect x="140" y="480" width="940" height="245" rx="20" class="rag"/>
+  <text x="610" y="515" text-anchor="middle" class="box-title">KnowledgeBaseService.retrieve(query)</text>
+  <text x="185" y="550" class="box-text">POST 智谱 knowledge/retrieve</text>
+  <text x="185" y="579" class="box-text">request_id · query · knowledge_ids</text>
+  <text x="185" y="608" class="box-text">top_k · top_n · recall_method · rerank_status</text>
+  <text x="700" y="550" class="box-text">解析 data[] 文档片段</text>
+  <text x="700" y="579" class="box-text">按片段 text 去重</text>
+  <text x="700" y="608" class="box-text">拼接来源文档名 + 片段</text>
+  <text x="610" y="651" text-anchor="middle" class="small">
+    上下文最大 15,000 字符；fromKnowledgeBase 只有在真实召回片段时设为 true
+  </text>
+  <text x="610" y="681" text-anchor="middle" class="small">
+    检索异常不会伪装成 RAG；记录 knowledgeError，后续根据 SQL 开关决定是否继续
+  </text>
+  <text x="610" y="711" text-anchor="middle" class="code">
+    KnowledgeBaseResult(found, context, sources)
+  </text>
+
+  <!-- Retrieval outcomes -->
+  <path d="M430 725 L430 780" class="arrow-rag"/>
+  <path d="M790 725 L790 780" class="arrow-rag"/>
+  <rect x="140" y="780" width="560" height="130" rx="18" class="success"/>
+  <text x="420" y="815" text-anchor="middle" class="box-title">found = true</text>
+  <text x="420" y="846" text-anchor="middle" class="box-text">存在有效文档片段</text>
+  <text x="420" y="876" text-anchor="middle" class="small">context 交给回答模型或 SQL 生成模型</text>
+
+  <rect x="720" y="780" width="560" height="130" rx="18" class="error"/>
+  <text x="1000" y="815" text-anchor="middle" class="box-title">found = false / error</text>
+  <text x="1000" y="846" text-anchor="middle" class="box-text">无召回或检索失败</text>
+  <text x="1000" y="876" text-anchor="middle" class="small">context 为空；knowledgeError 可有值</text>
+
+  <!-- No knowledge -->
+  <path d="M1430 360 L1660 360 L1660 480" class="arrow"/>
+  <text x="1545" y="344" text-anchor="middle" class="small">否</text>
+  <rect x="1380" y="480" width="560" height="130" rx="18" class="neutral"/>
+  <text x="1660" y="515" text-anchor="middle" class="box-title">跳过知识库检索</text>
+  <text x="1660" y="546" text-anchor="middle" class="box-text">knowledgeResult = empty()</text>
+  <text x="1660" y="576" text-anchor="middle" class="small">不会调用智谱知识库，也不会产生 RAG 标记</text>
+
+  <!-- Join context -->
+  <path d="M420 910 L420 990 L1000 990" class="arrow"/>
+  <path d="M1000 910 L1000 990" class="arrow"/>
+  <path d="M1660 610 L1660 990 L1240 990" class="arrow"/>
+  <rect x="720" y="955" width="800" height="105" rx="18" class="neutral"/>
+  <text x="1120" y="988" text-anchor="middle" class="box-title">统一上下文：knowledgeContext = context 或空字符串</text>
+  <text x="1120" y="1018" text-anchor="middle" class="small">
+    知识库状态保留在 ChatResponse，但不阻断后续 SQL 分支
+  </text>
+  <text x="1120" y="1044" text-anchor="middle" class="small">
+    只有 SQL Agent 关闭时，found 状态才决定是否调用纯 RAG 回答
+  </text>
+
+  <!-- SQL switch -->
+  <path d="M1120 1060 L1120 1105" class="arrow"/>
+  <polygon points="1120,1105 1430,1185 1120,1265 810,1185" class="decision"/>
+  <text x="1120" y="1176" text-anchor="middle" class="box-title">是否开启 SQL Agent？</text>
+  <text x="1120" y="1204" text-anchor="middle" class="small">useSqlAgent = true ?</text>
+
+  <!-- SQL yes -->
+  <path d="M1430 1185 L1550 1185 L1550 1320" class="arrow-deepseek"/>
+  <text x="1490" y="1168" text-anchor="middle" class="small">是</text>
+  <rect x="1250" y="1320" width="840" height="170" rx="20" class="db"/>
+  <text x="1670" y="1355" text-anchor="middle" class="box-title">SQL Agent 前置检查</text>
+  <text x="1285" y="1390" class="box-text">dataSourceConfigId 为空？ → 直接业务错误</text>
+  <text x="1285" y="1420" class="box-text">StpUtil user + findByIdAndUserId → 防跨用户</text>
+  <text x="1285" y="1450" class="box-text">loadSchema + requiresOrder → SQL 上下文</text>
+  <text x="1670" y="1474" text-anchor="middle" class="small">
+    即使知识库未召回或检索失败，SQL Agent 仍继续执行，只是 context 为空
+  </text>
+
+  <path d="M1670 1490 L1670 1545" class="arrow-deepseek"/>
+  <rect x="1250" y="1545" width="840" height="125" rx="20" class="deepseek"/>
+  <text x="1670" y="1580" text-anchor="middle" class="box-title">DeepSeek generateSQL</text>
+  <text x="1670" y="1611" text-anchor="middle" class="box-text">
+    user question + schemaText + knowledgeContext + dbType
+  </text>
+  <text x="1670" y="1641" text-anchor="middle" class="small">
+    开启知识库时，RAG 片段作为业务上下文；关闭时为 null／空串
+  </text>
+
+  <path d="M1670 1670 L1670 1730" class="arrow-deepseek"/>
+  <rect x="1250" y="1730" width="840" height="275" rx="20" class="neutral"/>
+  <text x="1670" y="1767" text-anchor="middle" class="box-title">SQL 核心引擎（详见另一张图）</text>
+  <text x="1285" y="1802" class="box-text">① cleanSql → JSqlParser → Select 安全门禁</text>
+  <text x="1285" y="1832" class="box-text">② AST 指纹去重 → CandidatePool</text>
+  <text x="1285" y="1862" class="box-text">③ 只读连接执行 → 结果指纹聚类</text>
+  <text x="1285" y="1892" class="box-text">④ 全失败 → DeepSeek 反馈修正</text>
+  <text x="1285" y="1922" class="box-text">⑤ 至少一个成功 → 共识选择</text>
+  <text x="1670" y="1958" text-anchor="middle" class="small">
+    访问目标数据库：HikariCP · only SELECT · timeout · maxRows · readOnly
+  </text>
+  <text x="1670" y="1984" text-anchor="middle" class="small">
+    SQL 结果最终由业务代码格式化，不再调用大模型总结
+  </text>
+
+  <path d="M1670 2005 L1670 2060" class="arrow-green"/>
+  <rect x="1250" y="2060" width="840" height="135" rx="20" class="success"/>
+  <text x="1670" y="2097" text-anchor="middle" class="box-title">ChatResponse</text>
+  <text x="1670" y="2128" text-anchor="middle" class="box-text">
+    SQL + 结果 + 置信度 + 候选证据 + RAG 标记 + errorCode
+  </text>
+  <text x="1670" y="2158" text-anchor="middle" class="small">
+    ChatService 保存用户消息、助手回复、SQL、结构化结果和历史
+  </text>
+
+  <!-- SQL no -->
+  <path d="M810 1185 L650 1185 L650 1270" class="arrow"/>
+  <text x="720" y="1168" text-anchor="middle" class="small">否</text>
+  <rect x="120" y="1270" width="1060" height="170" rx="20" class="neutral"/>
+  <text x="650" y="1306" text-anchor="middle" class="box-title">不执行 SQL，仅按知识库状态返回</text>
+  <text x="160" y="1340" class="box-text">A. knowledgeResult.found = true → 智谱 glm-4.6 基于片段回答</text>
+  <text x="160" y="1370" class="box-text">B. 知识库开启但无召回 → 返回“未检索到相关内容”</text>
+  <text x="160" y="1400" class="box-text">C. 知识库开启但检索异常 → 返回知识库错误</text>
+  <text x="900" y="1340" class="box-text">D. 两个开关都关闭</text>
+  <text x="900" y="1370" class="box-text">→ DeepSeek normalChat</text>
+  <text x="900" y="1400" class="box-text">（不带 SQL 执行）</text>
+
+  <!-- Non SQL outcomes -->
+  <path d="M370 1440 L370 1490" class="arrow-zhipu"/>
+  <path d="M720 1440 L720 1490" class="arrow-red"/>
+  <path d="M1070 1440 L1150 1440 L1150 1665 L600 1665 L600 1710" class="arrow-deepseek"/>
+  <rect x="120" y="1490" width="500" height="155" rx="18" class="zhipu"/>
+  <text x="370" y="1527" text-anchor="middle" class="box-title">智谱 RAG 回答</text>
+  <text x="370" y="1558" text-anchor="middle" class="box-text">KnowledgeBaseService.answer</text>
+  <text x="370" y="1588" text-anchor="middle" class="small">system prompt 只能使用召回片段</text>
+  <text x="370" y="1617" text-anchor="middle" class="small">temperature 0.1 · max_tokens 1024</text>
+
+  <rect x="650" y="1490" width="420" height="155" rx="18" class="error"/>
+  <text x="860" y="1527" text-anchor="middle" class="box-title">知识库业务响应</text>
+  <text x="860" y="1558" text-anchor="middle" class="box-text">无召回或检索失败</text>
+  <text x="860" y="1588" text-anchor="middle" class="small">fromKnowledgeBase=false</text>
+  <text x="860" y="1617" text-anchor="middle" class="small">不伪造 RAG 答案</text>
+
+  <rect x="120" y="1710" width="960" height="130" rx="18" class="deepseek"/>
+  <text x="600" y="1745" text-anchor="middle" class="box-title">DeepSeek 普通对话</text>
+  <text x="600" y="1776" text-anchor="middle" class="box-text">normalChat(userMessage)</text>
+  <text x="600" y="1806" text-anchor="middle" class="small">
+    不访问知识库 · 不生成 SQL · 不访问目标业务数据库
+  </text>
+
+  <!-- Current behavior callout -->
+  <rect x="70" y="2235" width="2095" height="150" rx="20" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+  <text x="100" y="2271" class="box-title">与旧 Mermaid 的一个关键区别</text>
+  <text x="100" y="2303" class="box-text">
+    当前代码在“知识库开启但未召回/检索失败”时，并不会立即结束请求：如果 SQL Agent 也开启，仍会使用空 knowledgeContext 继续 schema 读取和 SQL 生成。
+  </text>
+  <text x="100" y="2334" class="box-text">
+    只有未开启 SQL Agent 时，才返回“未检索到知识库内容/知识库错误”；两个开关都关闭时才走 DeepSeek 普通对话。
+  </text>
+  <text x="100" y="2365" class="small">
+    fromKnowledgeBase 仅在真实片段召回时为 true；知识库异常不会伪装成 RAG 成功。
+  </text>
+
+  <!-- Four mode summary -->
+  <text x="70" y="2445" class="stage">02  四种开关组合总结</text>
+  <rect x="70" y="2475" width="500" height="210" rx="18" class="rag"/>
+  <text x="320" y="2513" text-anchor="middle" class="box-title">知识库 ON + SQL ON</text>
+  <text x="100" y="2550" class="box-text">智谱检索文档片段</text>
+  <text x="100" y="2580" class="box-text">→ 片段交给 DeepSeek 生成 SQL</text>
+  <text x="100" y="2610" class="box-text">→ 只读执行目标数据库</text>
+  <text x="100" y="2640" class="box-text">→ 结果共识 → ChatResponse</text>
+  <text x="100" y="2665" class="small">无召回也可继续 SQL，但上下文为空</text>
+
+  <rect x="600" y="2475" width="500" height="210" rx="18" class="zhipu"/>
+  <text x="850" y="2513" text-anchor="middle" class="box-title">知识库 ON + SQL OFF</text>
+  <text x="630" y="2550" class="box-text">智谱检索文档片段</text>
+  <text x="630" y="2580" class="box-text">→ 有片段：glm-4.6 受约束回答</text>
+  <text x="630" y="2610" class="box-text">→ 无片段：返回未找到</text>
+  <text x="630" y="2640" class="box-text">→ 检索异常：返回知识库错误</text>
+  <text x="630" y="2665" class="small">不访问目标业务数据库</text>
+
+  <rect x="1130" y="2475" width="500" height="210" rx="18" class="deepseek"/>
+  <text x="1380" y="2513" text-anchor="middle" class="box-title">知识库 OFF + SQL ON</text>
+  <text x="1160" y="2550" class="box-text">不调用智谱知识库</text>
+  <text x="1160" y="2580" class="box-text">→ DeepSeek 直接生成 SQL</text>
+  <text x="1160" y="2610" class="box-text">→ 只读执行目标数据库</text>
+  <text x="1160" y="2640" class="box-text">→ 结果共识 → ChatResponse</text>
+  <text x="1160" y="2665" class="small">knowledgeContext 为空</text>
+
+  <rect x="1660" y="2475" width="505" height="210" rx="18" class="neutral"/>
+  <text x="1912" y="2513" text-anchor="middle" class="box-title">两个开关都 OFF</text>
+  <text x="1690" y="2550" class="box-text">不调用智谱知识库</text>
+  <text x="1690" y="2580" class="box-text">不生成 SQL</text>
+  <text x="1690" y="2610" class="box-text">不访问目标业务数据库</text>
+  <text x="1690" y="2640" class="box-text">→ DeepSeek normalChat</text>
+  <text x="1690" y="2665" class="small">普通自然语言对话</text>
+
+  <!-- External service strip -->
+  <rect x="70" y="2730" width="2095" height="62" rx="16" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="100" y="2768" class="small">
+    外部依赖：智谱 knowledge/retrieve（检索） · 智谱 chat/completions（纯 RAG 回答） · DeepSeek chat/completions（SQL / 修复 / 普通对话） · 目标数据库 JDBC（只读执行）
+  </text>
+  <text x="2170" y="2812" text-anchor="end" class="small">
+    SQL Agent · 知识库与数据库调用流程 · 2026-11-24
+  </text>
+</svg>

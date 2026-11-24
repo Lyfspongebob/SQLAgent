@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="2240"
+     height="2520"
+     viewBox="0 0 2240 2520"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">SQL Agent 核心 SQL 生成、清洗、AST 校验与结果共识流程</title>
+  <desc id="desc">从用户问题、数据库结构、模型生成候选、SQL 清洗、AST 安全校验、AST 去重、只读执行、结果指纹共识到修复与响应的完整流程</desc>
+
+  <defs>
+    <style>
+      .title { font: 700 34px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 16px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #64748b; }
+      .stage { font: 700 16px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .box-title { font: 700 19px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #0f172a; }
+      .box-text { font: 400 15px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #334155; }
+      .small { font: 400 13px "Microsoft YaHei", "PingFang SC", sans-serif; fill: #475569; }
+      .code { font: 600 14px "Cascadia Code", "Microsoft YaHei", monospace; fill: #0f172a; }
+      .model { fill: #ede9fe; stroke: #7c3aed; stroke-width: 2; }
+      .parse { fill: #fffbeb; stroke: #d97706; stroke-width: 2; }
+      .guard { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; }
+      .db { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; }
+      .consensus { fill: #dcfce7; stroke: #16a34a; stroke-width: 2; }
+      .neutral { fill: #f1f5f9; stroke: #475569; stroke-width: 2; }
+      .error { fill: #fff1f2; stroke: #e11d48; stroke-width: 2; }
+      .arrow { fill: none; stroke: #475569; stroke-width: 2.5; marker-end: url(#arrow); }
+      .arrow-red { fill: none; stroke: #e11d48; stroke-width: 2.5; marker-end: url(#arrow-red); }
+      .arrow-green { fill: none; stroke: #16a34a; stroke-width: 2.5; marker-end: url(#arrow-green); }
+      .arrow-purple { fill: none; stroke: #7c3aed; stroke-width: 2.5; marker-end: url(#arrow-purple); }
+      .dash { stroke-dasharray: 8 6; }
+      .badge { font: 700 12px "Cascadia Code", monospace; fill: #ffffff; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e11d48"/>
+    </marker>
+    <marker id="arrow-green" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <rect width="2240" height="2520" fill="#f8fafc"/>
+  <rect x="24" y="24" width="2192" height="2472" rx="30" fill="#ffffff" stroke="#e2e8f0"/>
+
+  <text x="70" y="73" class="title">Agent 核心 SQL 生成、清洗、AST 校验与结果共识</text>
+  <text x="70" y="105" class="subtitle">
+    对应 SQLAgentService2 · 模型只生成候选，AST 门禁决定是否执行，结果指纹决定是否采用
+  </text>
+
+  <!-- 1. Context -->
+  <text x="70" y="155" class="stage">01  输入与上下文</text>
+  <rect x="580" y="145" width="1060" height="92" rx="18" class="neutral"/>
+  <rect x="604" y="161" width="42" height="24" rx="12" fill="#475569"/>
+  <text x="625" y="178" text-anchor="middle" class="badge">USER</text>
+  <text x="670" y="177" class="box-title">用户自然语言问题</text>
+  <text x="670" y="205" class="box-text">
+    sessionId · useKnowledgeBase · useSqlAgent · dataSourceConfigId
+  </text>
+
+  <path d="M1110 237 L1110 275" class="arrow"/>
+  <rect x="580" y="275" width="1060" height="105" rx="18" class="neutral"/>
+  <text x="1110" y="306" text-anchor="middle" class="box-title">数据源所有权与 schema 读取</text>
+  <text x="1110" y="334" text-anchor="middle" class="box-text">
+    StpUtil 当前 userId → findByIdAndUserId 双重过滤 → DatabaseMetaData 获取表列结构
+  </text>
+  <text x="1110" y="358" text-anchor="middle" class="small">
+    requiresOrder 判断排序语义；知识库 context 可为空，但会作为生成 SQL 的可选上下文
+  </text>
+
+  <!-- 2. Candidate generation -->
+  <path d="M1110 380 L1110 425" class="arrow-purple"/>
+  <text x="70" y="430" class="stage">02  多候选生成</text>
+  <rect x="580" y="425" width="1060" height="165" rx="20" class="model"/>
+  <text x="1110" y="460" text-anchor="middle" class="box-title">DeepSeek generateSQL × candidateCount</text>
+  <text x="1110" y="490" text-anchor="middle" class="box-text">
+    输入：用户问题 + dbType + schemaText + temperature + knowledgeContext
+  </text>
+  <text x="1110" y="519" text-anchor="middle" class="small">
+    默认生成 3～7 个原始样本；每次独立返回一份 SQL 文本
+  </text>
+  <text x="1110" y="547" text-anchor="middle" class="small">
+    单个样本生成失败 → generationFailures++ → 继续下一个样本
+  </text>
+  <text x="1110" y="574" text-anchor="middle" class="code">
+    rawSql₀ ... rawSqlₙ
+  </text>
+
+  <!-- 3. Clean -->
+  <path d="M1110 590 L1110 640" class="arrow"/>
+  <text x="70" y="645" class="stage">03  SQL 文本清洗</text>
+  <rect x="580" y="640" width="1060" height="170" rx="20" class="parse"/>
+  <text x="1110" y="675" text-anchor="middle" class="box-title">cleanSql(rawSql)</text>
+  <text x="640" y="707" class="box-text">① 去除首尾空白</text>
+  <text x="640" y="735" class="box-text">② 提取 ```sql ... ``` 代码围栏内容</text>
+  <text x="640" y="763" class="box-text">③ 去除开头 “SQL:” / “查询语句:” 等前缀</text>
+  <text x="1270" y="707" class="box-text">④ 保留反引号，例如 `order`.`id`</text>
+  <text x="1270" y="735" class="box-text">⑤ 不在此阶段判断是否安全</text>
+  <text x="1270" y="763" class="small">目标：得到待交给解析器的 SQL 文本</text>
+  <text x="1110" y="792" text-anchor="middle" class="code">cleanedSql</text>
+
+  <!-- 4. Parse/validate -->
+  <path d="M1110 810 L1110 855" class="arrow-red"/>
+  <text x="70" y="860" class="stage">04  AST 解析与只读门禁</text>
+  <rect x="580" y="855" width="1060" height="290" rx="20" class="guard"/>
+  <text x="1110" y="889" text-anchor="middle" class="box-title">parseAndValidate(cleanedSql)</text>
+  <text x="625" y="925" class="code">CCJSqlParserUtil.parseStatements(sql)</text>
+  <text x="1280" y="925" class="small">JSqlParser 生成语法树 Statements</text>
+
+  <text x="625" y="963" class="box-text">① 必须恰好一条 SQL 语句</text>
+  <text x="625" y="992" class="box-text">② statement instanceof Select</text>
+  <text x="625" y="1021" class="box-text">③ 拒绝 INSERT / UPDATE / DELETE / DDL</text>
+  <text x="625" y="1050" class="box-text">④ 去注释后检查写文件、锁表和外部访问构造</text>
+
+  <text x="1270" y="963" class="box-text">⑤ statement.toString() 规范空白</text>
+  <text x="1270" y="992" class="box-text">⑥ SHA-256(normalizedAst)</text>
+  <text x="1270" y="1021" class="box-text">⑦ 产出 astFingerprint</text>
+  <text x="1270" y="1050" class="small">AST 指纹用于结构去重，不等于结果指纹</text>
+  <rect x="908" y="1082" width="404" height="42" rx="12" fill="#ffffff" stroke="#dc2626"/>
+  <text x="1110" y="1109" text-anchor="middle" class="code">SafeCandidate(sql, normalizedAst, astFingerprint)</text>
+
+  <!-- Validation failure branch -->
+  <path d="M1640 1000 L1715 1000" class="arrow-red"/>
+  <rect x="1715" y="920" width="455" height="170" rx="18" class="error"/>
+  <text x="1942" y="956" text-anchor="middle" class="box-title">当前样本拒绝</text>
+  <text x="1942" y="987" text-anchor="middle" class="box-text">SqlValidationException</text>
+  <text x="1942" y="1016" text-anchor="middle" class="small">空 SQL / 多语句 / 非 SELECT / 危险结构</text>
+  <text x="1942" y="1044" text-anchor="middle" class="small">generationFailures++</text>
+  <text x="1942" y="1070" text-anchor="middle" class="small">不执行数据库，继续下一条候选</text>
+  <path d="M1715 1005 L1660 1005 L1660 1145 L1220 1145 L1220 590"
+        class="arrow-red dash"/>
+
+  <!-- 5. Dedup -->
+  <path d="M1110 1145 L1110 1190" class="arrow"/>
+  <text x="70" y="1195" class="stage">05  AST 去重与候选池</text>
+  <rect x="580" y="1190" width="1060" height="230" rx="20" class="parse"/>
+  <text x="1110" y="1225" text-anchor="middle" class="box-title">按 astFingerprint 去重</text>
+  <text x="640" y="1260" class="box-text">astSamples[astFingerprint]++</text>
+  <text x="1280" y="1260" class="box-text">重复 AST：只记录生成稳定性</text>
+  <text x="640" y="1292" class="box-text">首次出现：uniqueCandidates.add(...)</text>
+  <text x="1280" y="1292" class="box-text">重复 AST 不会再次执行</text>
+  <text x="640" y="1324" class="box-text">parsedCount：解析成功样本数</text>
+  <text x="1280" y="1324" class="box-text">generationFailures：解析/安全失败数</text>
+  <rect x="735" y="1352" width="750" height="43" rx="12" fill="#ffffff" stroke="#d97706"/>
+  <text x="1110" y="1379" text-anchor="middle" class="code">
+    CandidatePool(requested, parsed, unique, duplicates, stability)
+  </text>
+
+  <!-- No candidate -->
+  <path d="M580 1305 L525 1305" class="arrow-red"/>
+  <rect x="80" y="1230" width="445" height="150" rx="18" class="error"/>
+  <text x="302" y="1267" text-anchor="middle" class="box-title">没有安全候选</text>
+  <text x="302" y="1298" text-anchor="middle" class="box-text">HTTP 200 业务失败</text>
+  <text x="302" y="1327" text-anchor="middle" class="small">errorCode = NO_SAFE_CANDIDATE</text>
+  <text x="302" y="1354" text-anchor="middle" class="small">返回请求数、解析数、失败数</text>
+
+  <!-- 6. Execute -->
+  <path d="M1110 1420 L1110 1460" class="arrow"/>
+  <text x="70" y="1465" class="stage">06  只读执行与结果指纹</text>
+  <rect x="580" y="1460" width="1060" height="280" rx="20" class="db"/>
+  <text x="1110" y="1495" text-anchor="middle" class="box-title">executeReadOnly(config, SafeCandidate)</text>
+  <text x="635" y="1530" class="box-text">① 获取 Hikari DataSource</text>
+  <text x="635" y="1559" class="box-text">② Connection.setReadOnly(true)</text>
+  <text x="635" y="1588" class="box-text">③ autoCommit=false + PreparedStatement</text>
+  <text x="635" y="1617" class="box-text">④ queryTimeout + maxRows＋1</text>
+  <text x="1270" y="1530" class="box-text">⑤ 逐行读取、列名去重、值归一化</text>
+  <text x="1270" y="1559" class="box-text">⑥ Blob/Clob/Array 转为安全值</text>
+  <text x="1270" y="1588" class="box-text">⑦ rollback 回收事务状态</text>
+  <text x="1270" y="1617" class="box-text">⑧ 生成 resultFingerprint</text>
+  <text x="1110" y="1652" text-anchor="middle" class="small">
+    空结果使用 EMPTY:AST指纹；有序问题保留行序，无序问题排序后哈希
+  </text>
+  <text x="1110" y="1681" text-anchor="middle" class="small">
+    单条候选失败 → CandidateFailure，不阻断其他安全候选
+  </text>
+
+  <!-- Failure and repair -->
+  <path d="M1640 1660 L1715 1660" class="arrow-red"/>
+  <rect x="1715" y="1580" width="455" height="170" rx="18" class="error"/>
+  <text x="1942" y="1615" text-anchor="middle" class="box-title">执行失败候选</text>
+  <text x="1942" y="1646" text-anchor="middle" class="box-text">CandidateExecutionException</text>
+  <text x="1942" y="1675" text-anchor="middle" class="small">超时 / SQL 语法方言 / 表列不存在 / 权限</text>
+  <text x="1942" y="1703" text-anchor="middle" class="small">记录错误，继续其他唯一候选</text>
+  <text x="1942" y="1730" text-anchor="middle" class="small">全部唯一候选失败 → 反馈修正</text>
+
+  <path d="M1942 1750 L1942 1795" class="arrow-red dash"/>
+  <rect x="1715" y="1795" width="455" height="230" rx="18" class="model"/>
+  <text x="1942" y="1830" text-anchor="middle" class="box-title">Agent 反馈修正</text>
+  <text x="1942" y="1861" text-anchor="middle" class="box-text">fixSQLWithFeedback(...)</text>
+  <text x="1942" y="1891" text-anchor="middle" class="small">输入：原 SQL + 错误 + schema + 知识上下文</text>
+  <text x="1942" y="1920" text-anchor="middle" class="small">修正 SQL 仍重新 clean + AST 门禁</text>
+  <text x="1942" y="1949" text-anchor="middle" class="small">重新只读执行；最多 repairTimes 次</text>
+  <text x="1942" y="1978" text-anchor="middle" class="small">成功后置信度 LOW，失败后返回 QUERY_EXECUTION_FAILED</text>
+  <path d="M1800 2025 L1800 2100 L1640 2100 L1640 2140" class="arrow-green"/>
+  <text x="1782" y="2052" text-anchor="end" class="small">修正成功</text>
+  <path d="M2050 2025 L2050 2130" class="arrow-red"/>
+  <text x="2068" y="2052" class="small">重试耗尽</text>
+  <rect x="1715" y="2130" width="455" height="140" rx="18" class="error"/>
+  <text x="1942" y="2166" text-anchor="middle" class="box-title">ChatResponse 失败</text>
+  <text x="1942" y="2197" text-anchor="middle" class="box-text">sqlExecutionSuccess=false</text>
+  <text x="1942" y="2227" text-anchor="middle" class="small">errorCode = QUERY_EXECUTION_FAILED</text>
+  <text x="1942" y="2256" text-anchor="middle" class="small">返回最后 SQL、错误信息和修正次数</text>
+
+  <!-- 7. Consensus -->
+  <path d="M1110 1740 L1110 1785" class="arrow-green"/>
+  <text x="70" y="1790" class="stage">07  结果簇共识与选择</text>
+  <rect x="580" y="1785" width="1060" height="280" rx="20" class="consensus"/>
+  <text x="1110" y="1820" text-anchor="middle" class="box-title">selectByConsensus(executions, CandidatePool)</text>
+  <text x="635" y="1855" class="box-text">① 按 resultFingerprint 聚类</text>
+  <text x="635" y="1884" class="box-text">② 单结果簇：检查执行覆盖</text>
+  <text x="635" y="1913" class="box-text">③ 单 AST：结合生成稳定性</text>
+  <text x="635" y="1942" class="box-text">④ 多结果簇：检查最低共识和领先幅度</text>
+  <text x="1270" y="1855" class="box-text">⑤ 重复 AST 不增加独立票</text>
+  <text x="1270" y="1884" class="box-text">⑥ 平票 → 不强行选择</text>
+  <text x="1270" y="1913" class="box-text">⑦ 获胜簇内：短 SQL → 快 SQL</text>
+  <text x="1270" y="1942" class="box-text">⑧ 输出 HIGH / MEDIUM / LOW</text>
+  <text x="1110" y="1984" text-anchor="middle" class="small">
+    候选证据：requestedSamples / parsedSamples / uniqueCandidates / duplicateSamples / successfulExecutions
+  </text>
+  <text x="1110" y="2015" text-anchor="middle" class="small">
+    结果一致只代表执行结果一致；业务口径仍由 schema、知识库和用户澄清共同约束
+  </text>
+
+  <!-- No consensus -->
+  <path d="M580 1900 L525 1900" class="arrow-red"/>
+  <rect x="80" y="1840" width="445" height="160" rx="18" class="error"/>
+  <text x="302" y="1878" text-anchor="middle" class="box-title">无明确共识</text>
+  <text x="302" y="1909" text-anchor="middle" class="box-text">HTTP 200 业务失败</text>
+  <text x="302" y="1938" text-anchor="middle" class="small">errorCode = NO_RESULT_CONSENSUS</text>
+  <text x="302" y="1966" text-anchor="middle" class="small">要求补充时间、指标、分组或排序口径</text>
+
+  <!-- 8. Response -->
+  <path d="M1110 2065 L1110 2140" class="arrow-green"/>
+  <text x="70" y="2145" class="stage">08  响应与持久化</text>
+  <rect x="580" y="2140" width="1060" height="185" rx="20" class="consensus"/>
+  <text x="1110" y="2177" text-anchor="middle" class="box-title">ChatResponse 成功</text>
+  <text x="1110" y="2208" text-anchor="middle" class="box-text">
+    最终 SQL + 结构化结果 + 置信度 + 候选证据 + 自然语言回复
+  </text>
+  <text x="1110" y="2238" text-anchor="middle" class="small">
+    ChatService 随后保存 user message、assistant message、SQL、结果 JSON 和历史来源标记
+  </text>
+  <text x="1110" y="2268" text-anchor="middle" class="small">
+    前端渲染 SQL、结果表、执行状态和候选人证据
+  </text>
+  <text x="1110" y="2298" text-anchor="middle" class="code">
+    sqlExecutionSuccess=true · ApiResponse.success
+  </text>
+
+  <!-- Notes -->
+  <rect x="70" y="2370" width="2100" height="82" rx="18" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="100" y="2400" class="box-title">关键边界</text>
+  <text x="100" y="2429" class="box-text">
+    模型仅负责提出 SQL 候选；AST 门禁负责拒绝写操作；数据库只读账号是最终安全兜底；结果指纹只用于一致性判断，不代表业务语义一定正确。
+  </text>
+
+  <text x="2170" y="2480" text-anchor="end" class="small">
+    SQL Agent · 核心 SQL 流程 · 2026-11-24
+  </text>
+</svg>
