@@ -4,6 +4,8 @@ import com.example.sqlagent.datasource.DataSourceConfig;
 import com.example.sqlagent.datasource.DataSourceConfigRepository;
 import com.example.sqlagent.datasource.DynamicDataSourceManager;
 import com.example.sqlagent.dto.ChatResponse;
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,7 +114,10 @@ public class SQLAgentService {
     private ChatResponse processSQLQuery(String userQuestion, Long dataSourceConfigId,
                                           String kbResult, ChatResponse response) {
         DataSourceConfig config = dataSourceConfigRepository.findById(dataSourceConfigId)
-                .orElseThrow(() -> new RuntimeException("数据源配置不存在"));
+                .orElseThrow(() -> new NotFoundException(
+                        ErrorCode.DATA_SOURCE_NOT_FOUND,
+                        "数据源配置不存在"
+                ));
 
         // 获取数据库表结构信息
         String tableSchema = getTableSchema(config);

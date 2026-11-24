@@ -58,6 +58,21 @@ sql-agent:
   vote-count: 10
   temperature: 0.8
 
+sql-agent-v2:
+  candidate-count: 5
+  temperature: 0.3
+  min-consensus: 2
+  min-consensus-ratio: 0.6
+  generation-stability-high: 0.8
+  generation-stability-medium: 0.6
+
+  query-timeout-seconds: 15
+  max-rows: 500
+  max-cell-chars: 8000
+  max-schema-chars: 20000
+
+  repair-times: 2
+
 # Schema 获取策略（对比实验用）：A  local-cache / B  knowledge-base / C  realtime
 schema:
   strategy: knowledge-base

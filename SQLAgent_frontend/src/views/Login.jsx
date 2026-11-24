@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { userApi } from '../api/user'
+import { formatApiError } from '../api/errors'
 import AuthLayout from '../components/AuthLayout'
 import { IconAlert } from '../components/Icons'
 
@@ -26,7 +27,7 @@ export default function Login() {
         setError(res.data.message)
       }
     } catch (err) {
-      setError(err.response?.data?.message || '登录失败，请重试')
+      setError(formatApiError(err, '登录失败，请重试'))
     } finally {
       setLoading(false)
     }

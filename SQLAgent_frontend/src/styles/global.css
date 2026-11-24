@@ -352,6 +352,11 @@ select.input {
   margin-top: 1px;
 }
 
+.message-error {
+  margin-top: 12px;
+  margin-bottom: 0;
+}
+
 .theme-toggle {
   display: inline-flex;
   align-items: center;

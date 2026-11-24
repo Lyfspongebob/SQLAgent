@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.UpstreamServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -242,13 +244,13 @@ public class KnowledgeBaseService {
         return message == null || message.isBlank() ? e.getClass().getSimpleName() : message;
     }
 
-    public static class KnowledgeBaseException extends RuntimeException {
+    public static class KnowledgeBaseException extends UpstreamServiceException {
         public KnowledgeBaseException(String message) {
-            super(message);
+            super(ErrorCode.KNOWLEDGE_BASE_UNAVAILABLE, message);
         }
 
         public KnowledgeBaseException(String message, Throwable cause) {
-            super(message, cause);
+            super(ErrorCode.KNOWLEDGE_BASE_UNAVAILABLE, message, cause);
         }
     }
 }

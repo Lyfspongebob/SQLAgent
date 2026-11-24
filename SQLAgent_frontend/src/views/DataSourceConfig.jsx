@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { datasourceApi } from '../api/datasource'
+import { formatApiError } from '../api/errors'
 import ThemeToggle from '../components/ThemeToggle'
 import {
   Logo,
@@ -107,7 +108,7 @@ export default function DataSourceConfig() {
         alert('连接失败：' + res.data.message)
       }
     } catch (err) {
-      alert('连接失败：' + (err.response?.data?.message || err.message))
+      alert('连接失败：' + formatApiError(err, '连接测试失败'))
     } finally {
       setTesting(false)
     }
@@ -133,7 +134,7 @@ export default function DataSourceConfig() {
         setError(res.data.message)
       }
     } catch (err) {
-      setError(err.response?.data?.message || '保存失败')
+      setError(formatApiError(err, '保存失败'))
     } finally {
       setLoading(false)
     }
@@ -146,7 +147,7 @@ export default function DataSourceConfig() {
       await datasourceApi.delete(id)
       loadConfigs()
     } catch (err) {
-      alert('删除失败：' + (err.response?.data?.message || err.message))
+      alert('删除失败：' + formatApiError(err, '删除失败'))
     }
   }
 

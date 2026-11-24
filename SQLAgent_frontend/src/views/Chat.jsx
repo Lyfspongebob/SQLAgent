@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { chatApi } from '../api/chat'
 import { datasourceApi } from '../api/datasource'
+import { formatApiError } from '../api/errors'
 import ThemeToggle from '../components/ThemeToggle'
 import CodeBlock, { CopyButton } from '../components/CodeBlock'
 import { normalizeChatMessage } from '../utils/chatMessage'
@@ -236,6 +237,7 @@ export default function Chat() {
           sqlResults: response.sqlResults,
           sqlExecutionSuccess: response.sqlExecutionSuccess,
           sqlErrorMessage: response.sqlErrorMessage,
+          errorCode: response.errorCode,
           fromKnowledgeBase: response.fromKnowledgeBase
         })
         setMessages(prev => [...prev, assistantMessage])
@@ -244,7 +246,8 @@ export default function Chat() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '抱歉，请求失败，请重试。错误：' + (err.response?.data?.message || err.message)
+        content: '抱歉，请求失败，请重试。错误：' +
+          formatApiError(err, '请求失败')
       }])
     } finally {
       setLoading(false)
@@ -460,6 +463,15 @@ export default function Chat() {
                         {msg.content}
                       </ReactMarkdown>
                     </div>
+
+                    {msg.role === 'assistant' &&
+                      msg.sqlExecutionSuccess === false &&
+                      msg.sqlErrorMessage &&
+                      !msg.sqlGenerated && (
+                        <div className="form-error message-error" role="alert">
+                          <span>{msg.sqlErrorMessage}</span>
+                        </div>
+                      )}
 
                     {msg.sqlResults && msg.sqlResults.length > 0 && (
                       <div className="result-panel">

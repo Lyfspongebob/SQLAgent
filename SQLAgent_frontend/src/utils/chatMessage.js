@@ -194,5 +194,6 @@ export function normalizeChatMessage(message) {
     sqlExecutionSuccess:
       message?.sqlExecutionSuccess ?? message?.sqlSuccess ?? null,
     sqlErrorMessage: message?.sqlErrorMessage ?? null,
+    errorCode: message?.errorCode ?? null,
   }
 }

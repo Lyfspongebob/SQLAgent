@@ -2,6 +2,7 @@ package com.example.sqlagent.user;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.example.sqlagent.dto.*;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,25 +15,21 @@ public class UserController {
     private UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<User>> register(@RequestBody RegisterRequest request) {
-        try {
-            User user = userService.register(request);
-            user.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success("注册成功", user));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+    public ResponseEntity<ApiResponse<User>> register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
+        User user = userService.register(request);
+        user.setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success("注册成功", user));
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {
-        try {
-            LoginResponse loginResponse = userService.login(request);
-            loginResponse.getUser().setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success("登录成功", loginResponse));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request
+    ) {
+        LoginResponse loginResponse = userService.login(request);
+        loginResponse.getUser().setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success("登录成功", loginResponse));
     }
 
     @PostMapping("/logout")
@@ -43,13 +40,9 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<User>> getCurrentUser() {
-        try {
-            long userId = StpUtil.getLoginIdAsLong();
-            User user = userService.getUserById(userId);
-            user.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success(user));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        long userId = StpUtil.getLoginIdAsLong();
+        User user = userService.getUserById(userId);
+        user.setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 }

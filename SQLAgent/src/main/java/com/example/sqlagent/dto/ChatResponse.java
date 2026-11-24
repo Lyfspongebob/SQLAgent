@@ -18,6 +18,7 @@ public class ChatResponse {
     private List<Map<String, Object>> sqlResults;
     private Boolean sqlExecutionSuccess;
     private String sqlErrorMessage;
+    private String errorCode;
     private Boolean fromKnowledgeBase;
     private String knowledgeBaseContent;
     private String knowledgeBaseError;

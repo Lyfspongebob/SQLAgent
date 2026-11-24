@@ -4,6 +4,10 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.example.sqlagent.dto.LoginRequest;
 import com.example.sqlagent.dto.LoginResponse;
 import com.example.sqlagent.dto.RegisterRequest;
+import com.example.sqlagent.error.AuthenticationException;
+import com.example.sqlagent.error.ConflictException;
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,7 +27,10 @@ public class UserService {
     @Transactional
     public User register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new RuntimeException("用户名已存在");
+            throw new ConflictException(
+                    ErrorCode.USERNAME_ALREADY_EXISTS,
+                    "用户名已存在"
+            );
         }
 
         User user = new User();
@@ -36,12 +43,18 @@ public class UserService {
     public LoginResponse login(LoginRequest request) {
         Optional<User> userOpt = userRepository.findByUsername(request.getUsername());
         if (userOpt.isEmpty()) {
-            throw new RuntimeException("用户名或密码错误");
+            throw new AuthenticationException(
+                    ErrorCode.INVALID_CREDENTIALS,
+                    "用户名或密码错误"
+            );
         }
 
         User user = userOpt.get();
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("用户名或密码错误");
+            throw new AuthenticationException(
+                    ErrorCode.INVALID_CREDENTIALS,
+                    "用户名或密码错误"
+            );
         }
 
         StpUtil.login(user.getUserId());
@@ -58,6 +71,9 @@ public class UserService {
 
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("用户不存在"));
+                .orElseThrow(() -> new NotFoundException(
+                        ErrorCode.USER_NOT_FOUND,
+                        "用户不存在"
+                ));
     }
 }

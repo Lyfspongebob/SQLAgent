@@ -19,13 +19,9 @@ public class ChatSessionController {
      */
     @PostMapping("/session/create")
     public ResponseEntity<ApiResponse<ChatSession>> createSession(@RequestBody(required = false) CreateSessionRequest request) {
-        try {
-            String title = request != null ? request.getTitle() : null;
-            ChatSession session = chatSessionService.createSession(title);
-            return ResponseEntity.ok(ApiResponse.success(session));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        String title = request != null ? request.getTitle() : null;
+        ChatSession session = chatSessionService.createSession(title);
+        return ResponseEntity.ok(ApiResponse.success(session));
     }
 
     /**
@@ -33,12 +29,8 @@ public class ChatSessionController {
      */
     @GetMapping("/sessions")
     public ResponseEntity<ApiResponse<List<ChatSession>>> getSessions() {
-        try {
-            List<ChatSession> sessions = chatSessionService.getUserSessions();
-            return ResponseEntity.ok(ApiResponse.success(sessions));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        List<ChatSession> sessions = chatSessionService.getUserSessions();
+        return ResponseEntity.ok(ApiResponse.success(sessions));
     }
 
     /**
@@ -46,12 +38,8 @@ public class ChatSessionController {
      */
     @DeleteMapping("/session/{sessionId}")
     public ResponseEntity<ApiResponse<Void>> deleteSession(@PathVariable Long sessionId) {
-        try {
-            chatSessionService.deleteSession(sessionId);
-            return ResponseEntity.ok(ApiResponse.success(null));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        chatSessionService.deleteSession(sessionId);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 
     /**
@@ -61,12 +49,8 @@ public class ChatSessionController {
     public ResponseEntity<ApiResponse<ChatSession>> updateSessionTitle(
             @PathVariable Long sessionId,
             @RequestBody UpdateSessionTitleRequest request) {
-        try {
-            ChatSession session = chatSessionService.updateSessionTitle(sessionId, request.getTitle());
-            return ResponseEntity.ok(ApiResponse.success(session));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        ChatSession session = chatSessionService.updateSessionTitle(sessionId, request.getTitle());
+        return ResponseEntity.ok(ApiResponse.success(session));
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.example.sqlagent.agent;
 
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.UpstreamServiceException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -65,7 +67,11 @@ public class DeepSeekService {
             return responseJson.get("choices").get(0).get("message").get("content").asText();
         } catch (Exception e) {
             log.error("调用DeepSeek API失败: {}", e.getMessage(), e);
-            throw new RuntimeException("调用DeepSeek API失败: " + e.getMessage());
+            throw new UpstreamServiceException(
+                    ErrorCode.DEEPSEEK_UNAVAILABLE,
+                    "调用DeepSeek API失败: " + e.getMessage(),
+                    e
+            );
         }
     }
 
