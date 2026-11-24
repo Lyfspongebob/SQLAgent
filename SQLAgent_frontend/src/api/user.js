@@ -18,7 +18,11 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401) {
+    const requestUrl = error.config?.url || ''
+    const isLoginRequest = requestUrl.includes('/users/login')
+
+    // 登录失败也会返回 401，但不能因此把普通登录错误当成 token 失效。
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
