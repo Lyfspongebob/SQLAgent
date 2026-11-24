@@ -24,6 +24,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
 
     // Sa-Token
     implementation 'cn.dev33:sa-token-spring-boot3-starter:1.39.0'
@@ -44,9 +45,13 @@ dependencies {
     // HTTP Client (for calling DeepSeek API)
     implementation 'org.apache.httpcomponents.client5:httpclient5'
 
+    // SQL AST 解析：用于只读校验和 AST 去重
+    implementation 'com.github.jsqlparser:jsqlparser:5.3'
+
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'com.h2database:h2'
 
     implementation 'cn.bigmodel.openapi:oapi-java-sdk:1.0.6'
 }

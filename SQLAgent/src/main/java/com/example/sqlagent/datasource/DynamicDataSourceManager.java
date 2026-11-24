@@ -1,5 +1,8 @@
 package com.example.sqlagent.datasource;
 
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.QueryExecutionException;
+import com.example.sqlagent.error.ValidationException;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.stereotype.Component;
@@ -60,7 +63,10 @@ public class DynamicDataSourceManager {
                     config.getHost(), config.getPort(), config.getDatabaseName());
             case "sqlserver" -> String.format("jdbc:sqlserver://%s:%d;databaseName=%s",
                     config.getHost(), config.getPort(), config.getDatabaseName());
-            default -> throw new IllegalArgumentException("不支持的数据库类型: " + config.getDbType());
+            default -> throw new ValidationException(
+                    ErrorCode.UNSUPPORTED_DATABASE_TYPE,
+                    "不支持的数据库类型: " + config.getDbType()
+            );
         };
     }
 
@@ -72,7 +78,10 @@ public class DynamicDataSourceManager {
             case "mysql" -> "com.mysql.cj.jdbc.Driver";
             case "postgresql" -> "org.postgresql.Driver";
             case "sqlserver" -> "com.microsoft.sqlserver.jdbc.SQLServerDriver";
-            default -> throw new IllegalArgumentException("不支持的数据库类型: " + dbType);
+            default -> throw new ValidationException(
+                    ErrorCode.UNSUPPORTED_DATABASE_TYPE,
+                    "不支持的数据库类型: " + dbType
+            );
         };
     }
 
@@ -121,7 +130,10 @@ public class DynamicDataSourceManager {
                     host, port, databaseName);
             case "sqlserver" -> String.format("jdbc:sqlserver://%s:%d;databaseName=%s;loginTimeout=5",
                     host, port, databaseName);
-            default -> throw new IllegalArgumentException("不支持的数据库类型: " + dbType);
+            default -> throw new ValidationException(
+                    ErrorCode.UNSUPPORTED_DATABASE_TYPE,
+                    "不支持的数据库类型: " + dbType
+            );
         };
     }
 
@@ -176,7 +188,11 @@ public class DynamicDataSourceManager {
                 }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("SQL执行失败: " + e.getMessage());
+            throw new QueryExecutionException(
+                    ErrorCode.QUERY_EXECUTION_FAILED,
+                    "SQL执行失败: " + e.getMessage(),
+                    e
+            );
         }
 
         return results;
@@ -192,7 +208,11 @@ public class DynamicDataSourceManager {
              Statement stmt = conn.createStatement()) {
             return stmt.executeUpdate(sql);
         } catch (SQLException e) {
-            throw new RuntimeException("SQL执行失败: " + e.getMessage());
+            throw new QueryExecutionException(
+                    ErrorCode.QUERY_EXECUTION_FAILED,
+                    "SQL执行失败: " + e.getMessage(),
+                    e
+            );
         }
     }
 

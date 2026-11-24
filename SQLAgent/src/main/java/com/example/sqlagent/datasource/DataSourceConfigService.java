@@ -2,6 +2,9 @@ package com.example.sqlagent.datasource;
 
 import com.example.sqlagent.dto.DataSourceConfigRequest;
 import com.example.sqlagent.dto.TestConnectionRequest;
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.NotFoundException;
+import com.example.sqlagent.error.ValidationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,7 +27,10 @@ public class DataSourceConfigService {
 
     public DataSourceConfig getConfigById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("数据源配置不存在"));
+                .orElseThrow(() -> new NotFoundException(
+                        ErrorCode.DATA_SOURCE_NOT_FOUND,
+                        "数据源配置不存在"
+                ));
     }
 
     @Transactional
@@ -45,7 +51,10 @@ public class DataSourceConfigService {
     @Transactional
     public DataSourceConfig updateConfig(DataSourceConfigRequest request) {
         DataSourceConfig config = repository.findById(request.getId())
-                .orElseThrow(() -> new RuntimeException("数据源配置不存在"));
+                .orElseThrow(() -> new NotFoundException(
+                        ErrorCode.DATA_SOURCE_NOT_FOUND,
+                        "数据源配置不存在"
+                ));
 
         config.setName(request.getName());
         config.setDbType(request.getDbType());
@@ -71,7 +80,7 @@ public class DataSourceConfigService {
         repository.deleteById(id);
     }
 
-    public String testConnection(TestConnectionRequest request) {
+    public void testConnection(TestConnectionRequest request) {
         String password = request.getPassword();
         // 如果密码为空，尝试从数据库获取已保存的密码（编辑时前端不会回传密码）
         if (request.getId() != null && (password == null || password.isEmpty())) {
@@ -80,7 +89,7 @@ public class DataSourceConfigService {
                 password = config.getPassword();
             }
         }
-        return dynamicDataSourceManager.testConnection(
+        String errorMessage = dynamicDataSourceManager.testConnection(
                 request.getDbType(),
                 request.getHost(),
                 request.getPort(),
@@ -88,5 +97,12 @@ public class DataSourceConfigService {
                 request.getUsername(),
                 password
         );
+
+        if (errorMessage != null && !errorMessage.isBlank()) {
+            throw new ValidationException(
+                    ErrorCode.CONNECTION_TEST_FAILED,
+                    errorMessage
+            );
+        }
     }
 }

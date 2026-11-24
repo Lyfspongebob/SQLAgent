@@ -19,72 +19,44 @@ public class DataSourceConfigController {
 
     @GetMapping("/list")
     public ResponseEntity<ApiResponse<List<DataSourceConfig>>> list() {
-        try {
-            long userId = StpUtil.getLoginIdAsLong();
-            List<DataSourceConfig> configs = dataSourceConfigService.getConfigsByUserId(userId);
-            // 隐藏密码（返回脱敏信息，仅用于前端展示）
-            configs.forEach(c -> c.setPassword("******"));
-            return ResponseEntity.ok(ApiResponse.success(configs));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        long userId = StpUtil.getLoginIdAsLong();
+        List<DataSourceConfig> configs = dataSourceConfigService.getConfigsByUserId(userId);
+        // 隐藏密码（返回脱敏信息，仅用于前端展示）
+        configs.forEach(c -> c.setPassword("******"));
+        return ResponseEntity.ok(ApiResponse.success(configs));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<DataSourceConfig>> getById(@PathVariable Long id) {
-        try {
-            DataSourceConfig config = dataSourceConfigService.getConfigById(id);
-            config.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success(config));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        DataSourceConfig config = dataSourceConfigService.getConfigById(id);
+        config.setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success(config));
     }
 
     @PostMapping("/save")
     public ResponseEntity<ApiResponse<DataSourceConfig>> save(@RequestBody DataSourceConfigRequest request) {
-        try {
-            long userId = StpUtil.getLoginIdAsLong();
-            DataSourceConfig config = dataSourceConfigService.saveConfig(userId, request);
-            config.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success("保存成功", config));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        long userId = StpUtil.getLoginIdAsLong();
+        DataSourceConfig config = dataSourceConfigService.saveConfig(userId, request);
+        config.setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success("保存成功", config));
     }
 
     @PutMapping("/update")
     public ResponseEntity<ApiResponse<DataSourceConfig>> update(@RequestBody DataSourceConfigRequest request) {
-        try {
-            DataSourceConfig config = dataSourceConfigService.updateConfig(request);
-            config.setPassword(null);
-            return ResponseEntity.ok(ApiResponse.success("更新成功", config));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        DataSourceConfig config = dataSourceConfigService.updateConfig(request);
+        config.setPassword(null);
+        return ResponseEntity.ok(ApiResponse.success("更新成功", config));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
-        try {
-            dataSourceConfigService.deleteConfig(id);
-            return ResponseEntity.ok(ApiResponse.success("删除成功", null));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        dataSourceConfigService.deleteConfig(id);
+        return ResponseEntity.ok(ApiResponse.success("删除成功", null));
     }
 
     @PostMapping("/test-connection")
     public ResponseEntity<ApiResponse<Boolean>> testConnection(@RequestBody TestConnectionRequest request) {
-        try {
-            String errorMsg = dataSourceConfigService.testConnection(request);
-            if (errorMsg == null) {
-                return ResponseEntity.ok(ApiResponse.success("连接成功", true));
-            } else {
-                return ResponseEntity.ok(ApiResponse.error(errorMsg));
-            }
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
-        }
+        dataSourceConfigService.testConnection(request);
+        return ResponseEntity.ok(ApiResponse.success("连接成功", true));
     }
 }

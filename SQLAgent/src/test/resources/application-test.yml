@@ -1,0 +1,38 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:sqlagent_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+deepseek:
+  api-key: test-key
+  api-url: http://localhost/mock-deepseek
+  model: test-model
+
+zhipu:
+  api-key: test-key
+  knowledge-base-id: test-kb
+  api-url: http://localhost/mock-zhipu
+  retrieval-url: http://localhost/mock-retrieval
+  model: test-model
+  top-k: 5
+  top-n: 20
+  recall-method: mixed
+
+sql-agent-v2:
+  candidate-count: 3
+  temperature: 0.3
+  min-consensus: 2
+  min-consensus-ratio: 0.6
+  query-timeout-seconds: 5
+  max-rows: 20
+  max-cell-chars: 1000
+  max-schema-chars: 10000
+  repair-times: 1

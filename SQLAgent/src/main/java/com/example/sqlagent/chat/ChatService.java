@@ -2,6 +2,7 @@ package com.example.sqlagent.chat;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.example.sqlagent.agent.SQLAgentService;
+import com.example.sqlagent.agent.SQLAgentService2;
 import com.example.sqlagent.dto.ChatRequest;
 import com.example.sqlagent.dto.ChatResponse;
 import com.example.sqlagent.dto.ChatMessageResponse;
@@ -20,7 +21,7 @@ public class ChatService {
     private ChatSessionRepository chatSessionRepository;
 
     @Autowired
-    private SQLAgentService sqlAgentService;
+    private SQLAgentService2 sqlAgentService;
 
     @Autowired
     private ChatResultCodec chatResultCodec;

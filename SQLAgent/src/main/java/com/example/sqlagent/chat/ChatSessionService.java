@@ -1,6 +1,9 @@
 package com.example.sqlagent.chat;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.sqlagent.error.ErrorCode;
+import com.example.sqlagent.error.ForbiddenException;
+import com.example.sqlagent.error.NotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,9 +60,15 @@ public class ChatSessionService {
     public ChatSession updateSessionTitle(Long sessionId, String title) {
         long userId = StpUtil.getLoginIdAsLong();
         ChatSession session = chatSessionRepository.findById(sessionId)
-                .orElseThrow(() -> new RuntimeException("会话不存在"));
+                .orElseThrow(() -> new NotFoundException(
+                        ErrorCode.SESSION_NOT_FOUND,
+                        "会话不存在"
+                ));
         if (!session.getUserId().equals(userId)) {
-            throw new RuntimeException("无权操作此会话");
+            throw new ForbiddenException(
+                    ErrorCode.SESSION_ACCESS_DENIED,
+                    "无权操作此会话"
+            );
         }
         session.setTitle(title);
         session.setUpdateTime(LocalDateTime.now());
