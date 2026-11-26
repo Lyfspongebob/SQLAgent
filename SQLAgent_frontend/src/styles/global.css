@@ -332,6 +332,49 @@ select.input {
   font-weight: 400;
 }
 
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input {
+  padding-right: 48px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition:
+    background-color var(--motion-fast),
+    color var(--motion-fast);
+}
+
+.password-toggle:hover {
+  background: var(--inset);
+  color: var(--text);
+}
+
+.password-toggle:active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.password-input::-ms-reveal,
+.password-input::-ms-clear {
+  display: none;
+}
+
 .form-error {
   display: flex;
   align-items: flex-start;
