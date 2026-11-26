@@ -11,3 +11,5 @@ build/
 # Node / Vite
 node_modules/
 *.log
+
+SQLAgent_frontend/dist/
