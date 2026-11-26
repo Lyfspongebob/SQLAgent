@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { userApi } from '../api/user'
 import { formatApiError } from '../api/errors'
 import AuthLayout from '../components/AuthLayout'
-import { IconAlert } from '../components/Icons'
+import { IconAlert, IconEye, IconEyeOff } from '../components/Icons'
 
 export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -70,16 +71,28 @@ export default function Login() {
             <label htmlFor="login-password">密码</label>
             <span className="field-hint">区分大小写</span>
           </div>
-          <input
-            id="login-password"
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="请输入密码"
-            autoComplete="current-password"
-            required
-          />
+          <div className="password-input-wrap">
+            <input
+              id="login-password"
+              className="input password-input"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="请输入密码"
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? '隐藏密码' : '显示密码'}
+              aria-controls="login-password"
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <IconEye size={18} /> : <IconEyeOff size={18} />}
+            </button>
+          </div>
         </div>
 
         <button

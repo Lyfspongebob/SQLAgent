@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router-dom'
 import { userApi } from '../api/user'
 import { formatApiError } from '../api/errors'
 import AuthLayout from '../components/AuthLayout'
-import { IconAlert } from '../components/Icons'
+import { IconAlert, IconEye, IconEyeOff } from '../components/Icons'
 
 export default function Register() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -97,30 +99,58 @@ export default function Register() {
             <label htmlFor="register-password">密码</label>
             <span className="field-hint">至少 6 位</span>
           </div>
-          <input
-            id="register-password"
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="设置登录密码"
-            autoComplete="new-password"
-            required
-          />
+          <div className="password-input-wrap">
+            <input
+              id="register-password"
+              className="input password-input"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="设置登录密码"
+              autoComplete="new-password"
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? '隐藏密码' : '显示密码'}
+              aria-controls="register-password"
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <IconEye size={18} /> : <IconEyeOff size={18} />}
+            </button>
+          </div>
         </div>
 
         <div className="field">
           <label htmlFor="register-confirm-password">确认密码</label>
-          <input
-            id="register-confirm-password"
-            className="input"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="再次输入密码"
-            autoComplete="new-password"
-            required
-          />
+          <div className="password-input-wrap">
+            <input
+              id="register-confirm-password"
+              className="input password-input"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="再次输入密码"
+              autoComplete="new-password"
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle"
+              onClick={() => setShowConfirmPassword((visible) => !visible)}
+              aria-label={showConfirmPassword ? '隐藏确认密码' : '显示确认密码'}
+              aria-controls="register-confirm-password"
+              aria-pressed={showConfirmPassword}
+            >
+              {showConfirmPassword ? (
+                <IconEye size={18} />
+              ) : (
+                <IconEyeOff size={18} />
+              )}
+            </button>
+          </div>
         </div>
 
         <button
