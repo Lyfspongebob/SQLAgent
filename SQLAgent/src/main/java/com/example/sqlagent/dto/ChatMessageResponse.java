@@ -24,5 +24,7 @@ public class ChatMessageResponse {
     private String sqlResultFormat;
     private Boolean sqlExecutionSuccess;
     private Boolean fromKnowledgeBase;
+    private List<AttachmentResponse> attachments;
+    private List<AgentStepResponse> agentSteps;
     private LocalDateTime createTime;
 }

@@ -1285,6 +1285,149 @@ select.input {
   padding-top: 1px;
 }
 
+.agent-workflow {
+  margin: 0 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+}
+
+.agent-workflow.is-live {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.agent-workflow.has-failure {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border));
+}
+
+.agent-workflow summary {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.agent-workflow summary::-webkit-details-marker {
+  display: none;
+}
+
+.agent-workflow summary::before {
+  content: "›";
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  transition: transform var(--motion-fast);
+}
+
+.agent-workflow[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.agent-workflow-label {
+  margin-right: auto;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.07em;
+}
+
+.agent-workflow-count {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.agent-step-list {
+  padding: 3px 10px 9px 25px;
+  border-top: 1px solid var(--border);
+}
+
+.agent-step {
+  position: relative;
+  display: flex;
+  gap: 9px;
+  padding: 7px 0;
+}
+
+.agent-step + .agent-step {
+  border-top: 1px dashed color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.agent-step-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.agent-step.running .agent-step-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  animation: agent-step-pulse 1.2s ease-in-out infinite;
+}
+
+.agent-step.completed .agent-step-dot {
+  background: var(--success);
+}
+
+.agent-step.failed .agent-step-dot {
+  background: var(--danger);
+}
+
+@keyframes agent-step-pulse {
+  50% {
+    opacity: 0.42;
+    transform: scale(0.82);
+  }
+}
+
+.agent-step-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-step-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.agent-step-type {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.06em;
+}
+
+.agent-step-summary,
+.agent-step-detail {
+  color: var(--text-secondary);
+  font-size: 9.5px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.agent-step-detail {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  white-space: pre-wrap;
+}
+
 .inline-status {
   display: inline-flex;
   align-items: center;
@@ -1670,6 +1813,7 @@ select.input {
 }
 
 .composer {
+  position: relative;
   width: 100%;
   max-width: 880px;
   margin: 0 auto;
@@ -1679,6 +1823,30 @@ select.input {
   background: var(--surface);
   box-shadow: var(--shadow-soft);
   transition: border-color var(--motion-base), box-shadow var(--motion-base);
+}
+
+.composer.is-dragging {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-soft);
+}
+
+.composer-drop-zone {
+  position: absolute;
+  z-index: 5;
+  inset: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px dashed var(--accent);
+  border-radius: calc(var(--radius-lg) - 5px);
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  backdrop-filter: blur(5px);
 }
 
 .composer:focus-within {
@@ -1784,6 +1952,32 @@ select.input {
   gap: 8px;
 }
 
+.attach-btn {
+  display: inline-flex;
+  width: 34px;
+  min-width: 34px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--motion-fast), color var(--motion-fast);
+}
+
+.attach-btn:hover:not(:disabled) {
+  background: var(--inset);
+  color: var(--text);
+}
+
+.attach-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
 .chat-input {
   min-height: 46px;
   max-height: 160px;
@@ -1858,6 +2052,143 @@ select.input {
   to {
     transform: rotate(360deg);
   }
+}
+
+.pending-attachments,
+.attachment-error {
+  margin: 0 0 7px 42px;
+}
+
+.pending-attachments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+}
+
+.attachment-error {
+  padding: 7px 9px;
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, var(--border));
+  border-radius: 8px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.attachment-chip {
+  position: relative;
+  display: flex;
+  min-width: 150px;
+  max-width: 260px;
+  flex: 1 1 170px;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--inset);
+}
+
+.attachment-chip.has-error {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+
+.attachment-icon {
+  display: inline-flex;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.attachment-chip.is-image .attachment-icon {
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  color: var(--accent);
+}
+
+.attachment-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attachment-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10.5px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.attachment-chip.has-error .attachment-meta {
+  color: var(--danger);
+}
+
+.attachment-remove {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.attachment-remove:hover:not(:disabled) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.attachment-remove:disabled {
+  cursor: wait;
+  opacity: 0.35;
+}
+
+.attachment-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 120ms linear;
+}
+
+.message-attachments {
+  margin-bottom: 9px;
 }
 
 .composer-help {
@@ -2579,6 +2910,22 @@ select.input {
     min-width: 48px;
     min-height: 48px;
     padding: 0;
+  }
+
+  .attach-btn {
+    width: 42px;
+    min-width: 42px;
+    height: 48px;
+  }
+
+  .pending-attachments,
+  .attachment-error {
+    margin-left: 0;
+  }
+
+  .attachment-chip {
+    max-width: none;
+    flex-basis: 100%;
   }
 
   .composer-help {

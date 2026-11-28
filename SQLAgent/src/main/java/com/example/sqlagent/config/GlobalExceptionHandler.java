@@ -16,6 +16,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -144,6 +145,19 @@ public class GlobalExceptionHandler {
         return build(
                 ErrorCode.DATABASE_ACCESS_FAILED,
                 ErrorCode.DATABASE_ACCESS_FAILED.defaultMessage(),
+                request,
+                Map.of()
+        );
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUploadTooLarge(
+            MaxUploadSizeExceededException exception,
+            HttpServletRequest request
+    ) {
+        return build(
+                ErrorCode.ATTACHMENT_TOO_LARGE,
+                ErrorCode.ATTACHMENT_TOO_LARGE.defaultMessage(),
                 request,
                 Map.of()
         );

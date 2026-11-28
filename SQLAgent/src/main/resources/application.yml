@@ -24,6 +24,11 @@ spring:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Shanghai
 
+  servlet:
+    multipart:
+      max-file-size: 21MB
+      max-request-size: 22MB
+
 sa-token:
   token-name: satoken
   timeout: 604800
@@ -35,11 +40,40 @@ sa-token:
 server:
   port: 8084
 
+attachments:
+  storage-dir: ${ATTACHMENT_STORAGE_DIR:./data/attachments}
+  max-file-size-bytes: ${ATTACHMENT_MAX_FILE_BYTES:5242880}
+  max-document-size-bytes: ${ATTACHMENT_MAX_DOCUMENT_BYTES:20971520}
+  max-total-size-bytes: ${ATTACHMENT_MAX_TOTAL_BYTES:31457280}
+  max-total-image-bytes: ${ATTACHMENT_MAX_TOTAL_IMAGE_BYTES:12582912}
+  max-files-per-message: 4
+  max-text-chars: 20000
+  max-total-text-chars: 40000
+  max-pdf-pages: 300
+  max-word-paragraphs: 20000
+  max-excel-rows-per-sheet: 5000
+  max-excel-columns: 60
+  max-document-units: 500
+  max-document-unit-chars: 6000
+  max-document-context-chars: 16000
+  max-context-chars-per-document: 10000
+  max-context-units-per-document: 4
+
+agent:
+  max-steps: 8
+  temperature: 0.2
+  document-read-max-chars: 16000
+  max-schema-chars: 30000
+  query-timeout-seconds: 15
+  max-query-rows: 200
+  max-result-cell-chars: 4000
+  max-tool-result-rows: 50
+
 # DeepSeek API Configuration
 deepseek:
   api-key: ${DEEPSEEK_API_KEY:}
   api-url: https://api.deepseek.com/v1/chat/completions
-  model: deepseek-v4-flash
+  model: ${DEEPSEEK_MODEL:deepseek-v4-flash}
 
 # ZhipuAI Knowledge Base Configuration
 zhipu:
