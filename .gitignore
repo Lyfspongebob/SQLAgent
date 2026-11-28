@@ -13,3 +13,7 @@ node_modules/
 *.log
 
 SQLAgent_frontend/dist/
+
+# Local attachment storage
+SQLAgent/data/
+data/

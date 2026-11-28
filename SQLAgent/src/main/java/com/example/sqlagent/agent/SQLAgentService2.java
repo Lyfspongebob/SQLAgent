@@ -1,6 +1,7 @@
 package com.example.sqlagent.agent;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.sqlagent.attachment.AttachmentPayload;
 import com.example.sqlagent.datasource.DataSourceConfig;
 import com.example.sqlagent.datasource.DataSourceConfigRepository;
 import com.example.sqlagent.datasource.DynamicDataSourceManager;
@@ -124,7 +125,28 @@ public class SQLAgentService2 {
         Boolean useKnowledgeBase,
         Boolean useSqlAgent,
         Long dataSourceConfigId
+    ) {
+        return processChat(
+                userMessage,
+                sessionId,
+                useKnowledgeBase,
+                useSqlAgent,
+                dataSourceConfigId,
+                List.of()
+        );
+    }
+
+    public ChatResponse processChat(
+        String userMessage,
+        Long sessionId,
+        Boolean useKnowledgeBase,
+        Boolean useSqlAgent,
+        Long dataSourceConfigId,
+        List<AttachmentPayload> attachments
     ){
+        List<AttachmentPayload> safeAttachments = attachments == null
+                ? List.of()
+                : attachments;
         ChatResponse response = new ChatResponse();
 
         KnowledgeBaseResult knowledgeResult = KnowledgeBaseResult.empty();
@@ -158,11 +180,12 @@ public class SQLAgentService2 {
                     userMessage,
                     dataSourceConfigId,
                     knowledgeResult,
-                    response
+                    response,
+                    safeAttachments
             );
         }
 
-        if (knowledgeResult.found()) {
+        if (knowledgeResult.found() && safeAttachments.isEmpty()) {
             try {
                 response.setReply(
                         knowledgeBaseService.answer(userMessage,knowledgeResult)
@@ -172,14 +195,36 @@ public class SQLAgentService2 {
                 response.setKnowledgeBaseError(e.getMessage());
                 response.setReply("知识库已检索到内容，但回答生成失败：" + e.getMessage());
             }
+        } else if (knowledgeResult.found()) {
+            response.setReply(deepSeekService.normalChatWithKnowledge(
+                    userMessage,
+                    knowledgeResult.context(),
+                    safeAttachments
+            ));
         } else if (Boolean.TRUE.equals(useKnowledgeBase)) {
             if (knowledgeError != null){
-                response.setReply("知识库检索失败：" + knowledgeError);
+                if (safeAttachments.isEmpty()) {
+                    response.setReply("知识库检索失败：" + knowledgeError);
+                } else {
+                    response.setReply(deepSeekService.normalChatWithKnowledge(
+                            userMessage,
+                            "知识库检索失败：" + knowledgeError,
+                            safeAttachments
+                    ));
+                }
+            } else if (!safeAttachments.isEmpty()) {
+                response.setReply(deepSeekService.normalChatWithKnowledge(
+                        userMessage,
+                        "知识库中未检索到与问题相关的内容。仍请分析用户附件。",
+                        safeAttachments
+                ));
             } else {
                 response.setReply("知识库中未检索到与问题相关的内容。");
             }
         } else {
-            response.setReply(deepSeekService.normalChat(userMessage, null));
+            response.setReply(safeAttachments.isEmpty()
+                    ? deepSeekService.normalChat(userMessage, null)
+                    : deepSeekService.normalChat(userMessage, null, safeAttachments));
         }
 
         return response;
@@ -466,7 +511,8 @@ public class SQLAgentService2 {
         String question,  // 用户自然语言问题
         DataSourceConfig config,  // 目标数据源配置
         String schemaText,   // 数据库 schema 文本 （表/列描述）
-        String knowledgeContext // 知识库上下文
+        String knowledgeContext, // 知识库上下文
+        List<AttachmentPayload> attachments
     ) {
 
        int requestedCount = clamp(candidateCount, 3, 7); // 配置的候选数 3~7
@@ -484,13 +530,22 @@ public class SQLAgentService2 {
        // 循环生成
         for (int index = 0; index < requestedCount; index++) {
             try {
-                String rawSql = deepSeekService.generateSQL(
-                        question,
-                        config.getDbType(),
-                        schemaText,
-                        temperature,
-                        knowledgeContext
-                );
+                String rawSql = attachments == null || attachments.isEmpty()
+                        ? deepSeekService.generateSQL(
+                                question,
+                                config.getDbType(),
+                                schemaText,
+                                temperature,
+                                knowledgeContext
+                        )
+                        : deepSeekService.generateSQL(
+                                question,
+                                config.getDbType(),
+                                schemaText,
+                                temperature,
+                                knowledgeContext,
+                                attachments
+                        );
 
                 SafeCandidate candidate = parseAndValidate(rawSql);
                 parsedCount++;
@@ -838,7 +893,8 @@ public class SQLAgentService2 {
             String question,                        //用户自然语言问题
             Long dataSourceConfigId,                //目标数据源ID
             KnowledgeBaseResult knowledgeResult,    //知识库检索结果（含context）
-            ChatResponse response                   //复用的响应对象，传入并原地修改的对象
+            ChatResponse response,                  //复用的响应对象，传入并原地修改的对象
+            List<AttachmentPayload> attachments
     ) {
         long userId = StpUtil.getLoginIdAsLong(); //去当前用登陆用户的ID
         DataSourceConfig config = dataSourceConfigRepository
@@ -857,7 +913,8 @@ public class SQLAgentService2 {
                 question,
                 config,
                 schemaText,
-                knowledgeResult.context()
+                knowledgeResult.context(),
+                attachments
         );
 
         // AST 去重后真正需要执行的候选
@@ -917,7 +974,8 @@ public class SQLAgentService2 {
                     knowledgeResult,
                     candidates,
                     failures,
-                    response
+                    response,
+                    attachments
             );
         }
 
@@ -1084,7 +1142,8 @@ public class SQLAgentService2 {
             KnowledgeBaseResult knowledgeResult,
             List<SafeCandidate> candidates,
             List<CandidateFailure> failures,
-            ChatResponse response
+            ChatResponse response,
+            List<AttachmentPayload> attachments
     ) {
         if (candidates.isEmpty()) {
             response.setSqlExecutionSuccess(false);
@@ -1103,15 +1162,26 @@ public class SQLAgentService2 {
 
         for (int attempt = 0; attempt < attempts; attempt++) {
             try {
-                String fixedRaw = deepSeekService.fixSQLWithFeedback(
-                        question,
-                        config.getDbType(),
-                        schemaText,
-                        currentSql,
-                        null,
-                        lastError,
-                        knowledgeResult.context()
-                );
+                String fixedRaw = attachments == null || attachments.isEmpty()
+                        ? deepSeekService.fixSQLWithFeedback(
+                                question,
+                                config.getDbType(),
+                                schemaText,
+                                currentSql,
+                                null,
+                                lastError,
+                                knowledgeResult.context()
+                        )
+                        : deepSeekService.fixSQLWithFeedback(
+                                question,
+                                config.getDbType(),
+                                schemaText,
+                                currentSql,
+                                null,
+                                lastError,
+                                knowledgeResult.context(),
+                                attachments
+                        );
 
                 SafeCandidate fixed = parseAndValidate(fixedRaw);
                 currentSql = fixed.sql();

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { chatApi } from '../api/chat'
+import { attachmentApi } from '../api/attachment'
 import { datasourceApi } from '../api/datasource'
 import { formatApiError } from '../api/errors'
 import ThemeToggle from '../components/ThemeToggle'
@@ -16,6 +17,9 @@ import {
   IconCode,
   IconSend,
   IconX,
+  IconPaperclip,
+  IconImage,
+  IconFileText,
 } from '../components/Icons'
 
 const QUERY_EXAMPLES = [
@@ -24,9 +28,182 @@ const QUERY_EXAMPLES = [
   '按月份汇总订单数量与平均金额',
 ]
 
+const MAX_ATTACHMENTS = 4
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024
+const SUPPORTED_FILE_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'gif',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx',
+  'txt', 'md', 'markdown', 'csv', 'json', 'jsonl', 'ndjson',
+  'sql', 'log', 'yaml', 'yml', 'xml',
+])
+const ATTACHMENT_ACCEPT = [
+  '.png', '.jpg', '.jpeg', '.gif',
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+  '.txt', '.md', '.markdown', '.csv', '.json', '.jsonl', '.ndjson',
+  '.sql', '.log', '.yaml', '.yml', '.xml',
+].join(',')
+
+function createLocalAttachmentId() {
+  return globalThis.crypto?.randomUUID?.() ||
+    `attachment-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function formatAttachmentSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
+
+function fileExtension(name) {
+  const parts = String(name || '').toLowerCase().split('.')
+  return parts.length > 1 ? parts.pop() : ''
+}
+
+function attachmentKindForFile(file) {
+  if (file.type?.startsWith('image/')) return 'IMAGE'
+  const extension = fileExtension(file.name)
+  if (extension === 'pdf') return 'PDF'
+  if (['doc', 'docx'].includes(extension)) return 'WORD'
+  if (['xls', 'xlsx'].includes(extension)) return 'EXCEL'
+  return 'TEXT'
+}
+
+function maxAttachmentBytes(file) {
+  const extension = fileExtension(file.name)
+  return ['pdf', 'doc', 'docx', 'xls', 'xlsx'].includes(extension)
+    ? MAX_DOCUMENT_BYTES
+    : MAX_ATTACHMENT_BYTES
+}
+
+function AttachmentList({ attachments, onRemove, disabled = false }) {
+  return (
+    <div className="attachment-list" aria-label="附件">
+      {attachments.map((attachment) => {
+        const isImage = attachment.kind === 'IMAGE'
+        const isUploading = attachment.status === 'uploading'
+        const hasError = attachment.status === 'error'
+
+        return (
+          <div
+            className={`attachment-chip ${isImage ? 'is-image' : 'is-file'} ${
+              hasError ? 'has-error' : ''
+            }`}
+            key={attachment.localId || attachment.id}
+          >
+            <span className="attachment-icon" aria-hidden="true">
+              {isImage
+                ? <IconImage size={15} />
+                : <IconFileText size={15} />}
+            </span>
+            <span className="attachment-copy">
+              <span className="attachment-name" title={attachment.name}>
+                {attachment.name}
+              </span>
+              <span className="attachment-meta">
+                {hasError
+                  ? '上传失败'
+                  : isUploading
+                    ? `上传中 ${attachment.progress || 0}%`
+                    : formatAttachmentSize(attachment.sizeBytes)}
+              </span>
+            </span>
+            {onRemove && (
+              <button
+                type="button"
+                className="attachment-remove"
+                onClick={() => onRemove(attachment)}
+                disabled={disabled || isUploading}
+                title={isUploading ? '正在上传' : '移除附件'}
+                aria-label={`移除附件 ${attachment.name}`}
+              >
+                <IconX size={12} />
+              </button>
+            )}
+            {isUploading && (
+              <span
+                className="attachment-progress"
+                style={{ width: `${attachment.progress || 0}%` }}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function upsertAgentStep(steps, nextStep) {
+  const index = steps.findIndex((step) => step.id === nextStep.id)
+  if (index < 0) return [...steps, nextStep]
+  const updated = [...steps]
+  updated[index] = { ...steps[index], ...nextStep }
+  return updated
+}
+
+function AgentWorkflow({ steps, live = false }) {
+  if (!steps?.length) return null
+
+  const finished = steps.filter(
+    (step) => step.status === 'completed' || step.status === 'failed'
+  ).length
+  const hasFailure = steps.some((step) => step.status === 'failed')
+
+  return (
+    <details
+      className={`agent-workflow ${live ? 'is-live' : ''} ${
+        hasFailure ? 'has-failure' : ''
+      }`}
+      open={live ? true : undefined}
+    >
+      <summary>
+        <span className="agent-workflow-label">AGENT WORKFLOW</span>
+        <span className="agent-workflow-count">
+          {live ? '执行中' : '查看步骤'} · {finished}/{steps.length}
+        </span>
+      </summary>
+      <div className="agent-step-list">
+        {steps.map((step) => (
+          <div
+            className={`agent-step ${step.status || 'pending'}`}
+            key={step.id}
+          >
+            <span className="agent-step-dot" aria-hidden="true" />
+            <div className="agent-step-copy">
+              <div className="agent-step-title">
+                <span>{step.title}</span>
+                <span className="agent-step-type">
+                  {step.type === 'tool'
+                    ? 'TOOL'
+                    : step.type === 'answer'
+                      ? 'ANSWER'
+                      : 'MODEL'}
+                </span>
+              </div>
+              {step.summary && (
+                <div className="agent-step-summary">{step.summary}</div>
+              )}
+              {step.detail && (
+                <div className="agent-step-detail">{step.detail}</div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </details>
+  )
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
+  const [pendingAttachments, setPendingAttachments] = useState([])
+  const [attachmentError, setAttachmentError] = useState('')
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false)
+  const [activeAgentSteps, setActiveAgentSteps] = useState([])
   const [loading, setLoading] = useState(false)
   const [useKnowledgeBase, setUseKnowledgeBase] = useState(false)
   const [useSqlAgent, setUseSqlAgent] = useState(false)
@@ -40,6 +217,7 @@ export default function Chat() {
   const [historyReloadKey, setHistoryReloadKey] = useState(0)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const fileInputRef = useRef(null)
   const historyRequestRef = useRef(0)
   const navigate = useNavigate()
 
@@ -51,6 +229,12 @@ export default function Chat() {
     (session) => session.id === currentSessionId
   )
   const isConversationLoading = loadingSessions || historyLoading
+  const isUploadingAttachments = pendingAttachments.some(
+    (attachment) => attachment.status === 'uploading'
+  )
+  const readyAttachments = pendingAttachments.filter(
+    (attachment) => attachment.status === 'ready' && attachment.id
+  )
 
   useEffect(() => {
     loadSessions()
@@ -144,10 +328,183 @@ export default function Chat() {
     }
   }
 
+  const ensureSession = async () => {
+    if (currentSessionId) return currentSessionId
+
+    const res = await chatApi.createSession('新对话')
+    if (res.data.code !== 200 || !res.data.data?.id) {
+      throw new Error(res.data.message || '创建会话失败')
+    }
+
+    const newSession = res.data.data
+    setSessions(prev => [newSession, ...prev])
+    setCurrentSessionId(newSession.id)
+    return newSession.id
+  }
+
+  const clearPendingAttachments = ({ deleteRemote = true } = {}) => {
+    const attachments = pendingAttachments
+    setPendingAttachments([])
+    setAttachmentError('')
+
+    if (!deleteRemote) return
+    attachments.forEach((attachment) => {
+      if (!attachment.id || attachment.status !== 'ready') return
+      attachmentApi.delete(attachment.id).catch(() => {
+        // 会话切换时清理失败不应阻塞界面。
+      })
+    })
+  }
+
+  const handleFilesSelected = async (fileList) => {
+    const files = Array.from(fileList || [])
+    if (
+      files.length === 0 ||
+      loading ||
+      isConversationLoading ||
+      isUploadingAttachments
+    ) {
+      return
+    }
+
+    const remainingSlots = MAX_ATTACHMENTS - pendingAttachments.length
+    if (remainingSlots <= 0) {
+      setAttachmentError(`每条消息最多上传 ${MAX_ATTACHMENTS} 个附件。`)
+      return
+    }
+
+    const messages = []
+    const candidates = files.slice(0, remainingSlots)
+    if (files.length > remainingSlots) {
+      messages.push(`每条消息最多上传 ${MAX_ATTACHMENTS} 个附件，已忽略超出部分。`)
+    }
+
+    const accepted = candidates.filter((file) => {
+      const extension = fileExtension(file.name)
+      const isSupportedImage = ['image/png', 'image/jpeg', 'image/gif']
+        .includes(file.type)
+      if (!isSupportedImage && !SUPPORTED_FILE_EXTENSIONS.has(extension)) {
+        messages.push(`${file.name} 的格式暂不支持。`)
+        return false
+      }
+      const maxBytes = maxAttachmentBytes(file)
+      if (file.size > maxBytes) {
+        messages.push(
+          `${file.name} 超过 ${maxBytes === MAX_DOCUMENT_BYTES ? '20 MB' : '5 MB'} 限制。`
+        )
+        return false
+      }
+      return true
+    })
+
+    if (accepted.length === 0) {
+      setAttachmentError(messages.join(' '))
+      return
+    }
+
+    let sessionId
+    try {
+      sessionId = await ensureSession()
+    } catch (err) {
+      setAttachmentError(formatApiError(err, '创建会话失败，无法上传附件'))
+      return
+    }
+
+    const placeholders = accepted.map((file) => ({
+      localId: createLocalAttachmentId(),
+      name: file.name,
+      sizeBytes: file.size,
+      kind: attachmentKindForFile(file),
+      status: 'uploading',
+      progress: 0,
+      file,
+    }))
+    setAttachmentError(messages.join(' '))
+    setPendingAttachments(prev => [...prev, ...placeholders])
+
+    for (const placeholder of placeholders) {
+      try {
+        const res = await attachmentApi.upload(
+          placeholder.file,
+          sessionId,
+          (event) => {
+            const total = event.total || placeholder.file.size || 1
+            const progress = Math.min(
+              99,
+              Math.max(1, Math.round((event.loaded / total) * 100))
+            )
+            setPendingAttachments(prev => prev.map((item) => (
+              item.localId === placeholder.localId
+                ? { ...item, progress }
+                : item
+            )))
+          }
+        )
+
+        if (res.data.code !== 200 || !res.data.data) {
+          throw new Error(res.data.message || '上传失败')
+        }
+
+        const uploaded = res.data.data
+        setPendingAttachments(prev => prev.map((item) => (
+          item.localId === placeholder.localId
+            ? {
+                ...item,
+                ...uploaded,
+                localId: placeholder.localId,
+                status: 'ready',
+                progress: 100,
+                file: undefined,
+              }
+            : item
+        )))
+      } catch (err) {
+        setPendingAttachments(prev => prev.map((item) => (
+          item.localId === placeholder.localId
+            ? { ...item, status: 'error', progress: 0, file: undefined }
+            : item
+        )))
+        setAttachmentError(
+          formatApiError(err, `${placeholder.name} 上传失败`)
+        )
+      }
+    }
+  }
+
+  const handleRemoveAttachment = async (attachment) => {
+    setPendingAttachments(prev => prev.filter(
+      (item) => item.localId !== attachment.localId
+    ))
+    setAttachmentError('')
+
+    if (!attachment.id || attachment.status !== 'ready') return
+    try {
+      await attachmentApi.delete(attachment.id)
+    } catch (err) {
+      console.warn('清理附件失败:', err)
+    }
+  }
+
+  const handleDropFiles = (event) => {
+    event.preventDefault()
+    setIsDraggingFiles(false)
+    handleFilesSelected(event.dataTransfer.files)
+  }
+
+  const handleDragLeave = (event) => {
+    if (
+      event.relatedTarget instanceof Node &&
+      event.currentTarget.contains(event.relatedTarget)
+    ) return
+    setIsDraggingFiles(false)
+  }
+
   const handleNewSession = async () => {
+    if (isUploadingAttachments) return
     try {
       const res = await chatApi.createSession('新对话')
       if (res.data.code === 200) {
+        clearPendingAttachments()
         const newSession = res.data.data
         setSessions(prev => [newSession, ...prev])
         setCurrentSessionId(newSession.id)
@@ -183,6 +540,8 @@ export default function Chat() {
 
   const handleSwitchSession = (sessionId) => {
     if (sessionId !== currentSessionId) {
+      if (isUploadingAttachments) return
+      clearPendingAttachments()
       setCurrentSessionId(sessionId)
     }
   }
@@ -194,56 +553,78 @@ export default function Chat() {
   }
 
   const handleSend = async () => {
-    if (!input.trim() || loading || historyLoading) return
+    if (
+      (!input.trim() && readyAttachments.length === 0) ||
+      loading ||
+      isConversationLoading ||
+      isUploadingAttachments
+    ) return
 
-    let sessionId = currentSessionId
-    if (!sessionId) {
-      try {
-        const res = await chatApi.createSession('新对话')
-        if (res.data.code === 200) {
-          const newSession = res.data.data
-          sessionId = newSession.id
-          setSessions(prev => [newSession, ...prev])
-          setCurrentSessionId(sessionId)
-        } else {
-          return
-        }
-      } catch (err) {
-        console.error('创建会话失败:', err)
-        return
-      }
+    let sessionId
+    try {
+      sessionId = await ensureSession()
+    } catch (err) {
+      setAttachmentError(formatApiError(err, '创建会话失败'))
+      return
     }
 
     const userMessage = input.trim()
+    const displayMessage = userMessage || '请分析上传的附件。'
+    const outgoingAttachments = readyAttachments
+    const attachmentIds = outgoingAttachments.map((attachment) => attachment.id)
     setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setAttachmentError('')
+    setPendingAttachments([])
+    setMessages(prev => [...prev, {
+      role: 'user',
+      content: displayMessage,
+      attachments: outgoingAttachments.map((attachment) => ({
+        id: attachment.id,
+        name: attachment.name,
+        contentType: attachment.contentType,
+        sizeBytes: attachment.sizeBytes,
+        kind: attachment.kind,
+      })),
+    }])
     setLoading(true)
+    setActiveAgentSteps([])
 
     try {
-      const res = await chatApi.sendMessage(
-        userMessage,
-        sessionId,
-        useKnowledgeBase,
-        useSqlAgent,
-        selectedDataSource || null
+      const response = await chatApi.streamMessage(
+        {
+          message: userMessage,
+          sessionId,
+          useKnowledgeBase,
+          useSqlAgent,
+          dataSourceConfigId: selectedDataSource || null,
+          attachmentIds,
+        },
+        {
+          onStep: (step) => {
+            setActiveAgentSteps((previous) => upsertAgentStep(previous, step))
+          },
+        }
       )
 
-      if (res.data.code === 200) {
-        const response = res.data.data
-        const assistantMessage = normalizeChatMessage({
-          role: 'assistant',
-          content: response.reply,
-          sqlGenerated: response.sqlGenerated,
-          sqlResults: response.sqlResults,
-          sqlExecutionSuccess: response.sqlExecutionSuccess,
-          sqlErrorMessage: response.sqlErrorMessage,
-          errorCode: response.errorCode,
-          fromKnowledgeBase: response.fromKnowledgeBase
-        })
-        setMessages(prev => [...prev, assistantMessage])
-        loadSessions()
-      }
+      const assistantMessage = normalizeChatMessage({
+        role: 'assistant',
+        content: response.reply,
+        sqlGenerated: response.sqlGenerated,
+        sqlResults: response.sqlResults,
+        sqlExecutionSuccess: response.sqlExecutionSuccess,
+        sqlErrorMessage: response.sqlErrorMessage,
+        errorCode: response.errorCode,
+        fromKnowledgeBase: response.fromKnowledgeBase,
+        agentSteps: response.agentSteps,
+      })
+      setMessages(prev => [...prev, assistantMessage])
+      loadSessions()
     } catch (err) {
+      attachmentIds.forEach((attachmentId) => {
+        attachmentApi.delete(attachmentId).catch(() => {
+          // 上游失败后尽力清理未绑定的附件。
+        })
+      })
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '抱歉，请求失败，请重试。错误：' +
@@ -251,6 +632,7 @@ export default function Chat() {
       }])
     } finally {
       setLoading(false)
+      setActiveAgentSteps([])
     }
   }
 
@@ -414,7 +796,8 @@ export default function Chat() {
                   <h2>从一个可验证的问题开始</h2>
                   <p>
                     用自然语言描述你想查询的结果。选择数据源并启用 SQL Agent 后，
-                    系统会生成 SQL，并把执行状态与结果留在同一份记录里。
+                    系统会生成 SQL，并把执行状态与结果留在同一份记录里。也可以上传
+                    表结构截图、CSV 或 Markdown 文件，让模型结合附件继续分析。
                   </p>
                 </div>
 
@@ -431,8 +814,8 @@ export default function Chat() {
                 </div>
 
                 <div className="empty-query-note">
-                  <IconDatabase size={14} />
-                  <span>先在下方设置执行上下文，再输入查询。</span>
+                  <IconPaperclip size={14} />
+                  <span>在下方上传附件，或先设置执行上下文再输入查询。</span>
                 </div>
               </section>
             )}
@@ -441,12 +824,26 @@ export default function Chat() {
               const isUser = msg.role === 'user'
               return (
                 <article key={index} className={`message ${msg.role}`}>
-                  {(!isUser || msg.fromKnowledgeBase || msg.sqlGenerated) && (
+                  {(
+                    !isUser ||
+                    msg.fromKnowledgeBase ||
+                    msg.sqlGenerated ||
+                    msg.attachments?.length > 0 ||
+                    msg.agentSteps?.length > 0
+                  ) && (
                     <div className="message-meta">
                       <span className="message-author">
                         {isUser ? '你' : 'SQL Agent'}
                       </span>
+                      {msg.attachments?.length > 0 && (
+                        <span className="token">
+                          {msg.attachments.length} ATTACHMENT
+                        </span>
+                      )}
                       {msg.fromKnowledgeBase && <span className="token">RAG</span>}
+                      {msg.agentSteps?.length > 0 && (
+                        <span className="token">AGENT</span>
+                      )}
                       {msg.sqlGenerated && <span className="token">SQL</span>}
                       {msg.sqlExecutionSuccess === true && (
                         <span className="inline-status success">
@@ -458,6 +855,14 @@ export default function Chat() {
                   )}
 
                   <div className={`message-content ${msg.role}`}>
+                    {msg.role === 'assistant' && (
+                      <AgentWorkflow steps={msg.agentSteps} />
+                    )}
+                    {msg.attachments?.length > 0 && (
+                      <div className="message-attachments">
+                        <AttachmentList attachments={msg.attachments} />
+                      </div>
+                    )}
                     <div className="transcript-copy">
                       <ReactMarkdown components={{ pre: CodeBlock }}>
                         {msg.content}
@@ -554,10 +959,17 @@ export default function Chat() {
                 <div className="message-meta">
                   <span className="message-author">SQL Agent</span>
                 </div>
-                <div className="loading-status" role="status" aria-live="polite">
-                  <span className="signal-line" aria-hidden="true" />
-                  <span>正在生成并校验 SQL</span>
-                  <span className="loading-caret" aria-hidden="true">_</span>
+                <div className="message-content assistant">
+                  <AgentWorkflow steps={activeAgentSteps} live />
+                  <div className="loading-status" role="status" aria-live="polite">
+                    <span className="signal-line" aria-hidden="true" />
+                    <span>
+                      {useSqlAgent
+                        ? 'Agent 正在调用工具完成任务'
+                        : 'Agent 正在分析文档与请求'}
+                    </span>
+                    <span className="loading-caret" aria-hidden="true">_</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -567,7 +979,24 @@ export default function Chat() {
         </div>
 
         <div className="chat-footer">
-          <div className="composer">
+          <div
+            className={`composer ${isDraggingFiles ? 'is-dragging' : ''}`}
+            onDragEnter={(event) => {
+              if (Array.from(event.dataTransfer.types).includes('Files')) {
+                setIsDraggingFiles(true)
+              }
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDropFiles}
+          >
+            {isDraggingFiles && (
+              <div className="composer-drop-zone" aria-hidden="true">
+                <IconPaperclip size={20} />
+                <span>释放文件以上传</span>
+              </div>
+            )}
+
             <div className="composer-head">
               <span className="composer-label">EXECUTION CONTEXT</span>
               <div className="chat-options">
@@ -613,7 +1042,58 @@ export default function Chat() {
               </div>
             </div>
 
+            {attachmentError && (
+              <div className="attachment-error" role="alert">
+                {attachmentError}
+              </div>
+            )}
+
+            {pendingAttachments.length > 0 && (
+              <div className="pending-attachments">
+                <div className="pending-attachments-head">
+                  <span>ATTACHMENTS</span>
+                  <span>
+                    {readyAttachments.length} / {MAX_ATTACHMENTS} READY
+                  </span>
+                </div>
+                <AttachmentList
+                  attachments={pendingAttachments}
+                  onRemove={handleRemoveAttachment}
+                  disabled={loading}
+                />
+              </div>
+            )}
+
             <div className="input-row">
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="sr-only"
+                accept={ATTACHMENT_ACCEPT}
+                multiple
+                onChange={(event) => {
+                  handleFilesSelected(event.target.files)
+                  event.target.value = ''
+                }}
+                tabIndex={-1}
+              />
+              <button
+                type="button"
+                className="attach-btn"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={
+                  loading ||
+                  isConversationLoading ||
+                  isUploadingAttachments ||
+                  pendingAttachments.length >= MAX_ATTACHMENTS
+                }
+                aria-label="上传附件"
+                title="上传图片或文本文件"
+              >
+                {isUploadingAttachments
+                  ? <span className="send-progress" aria-hidden="true" />
+                  : <IconPaperclip size={17} />}
+              </button>
               <label className="sr-only" htmlFor="query-input">查询内容</label>
               <textarea
                 ref={inputRef}
@@ -625,6 +1105,8 @@ export default function Chat() {
                 placeholder={
                   historyLoading
                     ? '正在载入会话记录…'
+                    : isUploadingAttachments
+                    ? '附件上传中，可继续输入问题…'
                     : useSqlAgent && !selectedDataSource
                     ? '请先选择数据源…'
                     : useSqlAgent
@@ -632,7 +1114,10 @@ export default function Chat() {
                       : '输入你的问题…'
                 }
                 rows={1}
-                disabled={historyLoading || (useSqlAgent && !selectedDataSource)}
+                disabled={
+                  isConversationLoading ||
+                  (useSqlAgent && !selectedDataSource)
+                }
               />
               <button
                 type="button"
@@ -640,8 +1125,9 @@ export default function Chat() {
                 onClick={handleSend}
                 disabled={
                   loading ||
-                  historyLoading ||
-                  !input.trim() ||
+                  isConversationLoading ||
+                  isUploadingAttachments ||
+                  (!input.trim() && readyAttachments.length === 0) ||
                   (useSqlAgent && !selectedDataSource)
                 }
                 aria-label={loading ? '正在处理查询' : '发送查询'}
@@ -654,8 +1140,8 @@ export default function Chat() {
             </div>
 
             <div className="composer-help">
-              <span>Enter 发送 · Shift + Enter 换行</span>
-              <span>执行结果需结合数据上下文核对</span>
+              <span>Enter 发送 · Shift + Enter 换行 · 可拖拽附件</span>
+              <span>图片/文本 5 MB · 文档 20 MB · 最多 4 个</span>
             </div>
           </div>
         </div>

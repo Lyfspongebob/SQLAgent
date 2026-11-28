@@ -1,6 +1,7 @@
 package com.example.sqlagent.chat;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.example.sqlagent.attachment.AttachmentService;
 import com.example.sqlagent.error.ErrorCode;
 import com.example.sqlagent.error.ForbiddenException;
 import com.example.sqlagent.error.NotFoundException;
@@ -19,6 +20,9 @@ public class ChatSessionService {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private AttachmentService attachmentService;
 
     /**
      * 创建新会话
@@ -47,6 +51,8 @@ public class ChatSessionService {
     @Transactional
     public void deleteSession(Long sessionId) {
         long userId = StpUtil.getLoginIdAsLong();
+        // 先清理附件元数据和对象存储中的文件
+        attachmentService.deleteForSession(userId, sessionId);
         // 删除会话下的所有消息
         List<ChatMessage> messages = chatMessageRepository.findByUserIdAndSessionIdOrderByCreateTimeAsc(userId, sessionId);
         chatMessageRepository.deleteAll(messages);

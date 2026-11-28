@@ -38,6 +38,9 @@ public class ChatMessage {
     @Column(name = "from_knowledge_base")
     private Boolean fromKnowledgeBase;
 
+    @Column(name = "agent_trace", columnDefinition = "LONGTEXT")
+    private String agentTrace;
+
     @Column(name = "create_time")
     private LocalDateTime createTime = LocalDateTime.now();
 }

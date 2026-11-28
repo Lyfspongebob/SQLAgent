@@ -1,13 +1,13 @@
 package com.example.sqlagent.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class ChatRequest {
-    @NotBlank(message = "消息不能为空")
     @Size(max = 4000, message = "消息不能超过 4000 个字符")
     private String message;
 
@@ -16,4 +16,7 @@ public class ChatRequest {
     private Boolean useKnowledgeBase;
     private Boolean useSqlAgent;
     private Long dataSourceConfigId;
+
+    @Size(max = 4, message = "每条消息最多携带 4 个附件")
+    private List<Long> attachmentIds;
 }

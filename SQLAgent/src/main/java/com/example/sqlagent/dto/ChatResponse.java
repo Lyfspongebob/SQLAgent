@@ -22,4 +22,5 @@ public class ChatResponse {
     private Boolean fromKnowledgeBase;
     private String knowledgeBaseContent;
     private String knowledgeBaseError;
+    private List<AgentStepResponse> agentSteps;
 }
